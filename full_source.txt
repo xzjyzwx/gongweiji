@@ -1,0 +1,2978 @@
+1:import React, { useState } from 'react';
+2:import { 
+3:  ChevronLeft, User, Search, RefreshCw, ClipboardList, 
+4:  CheckSquare, Archive, Settings, Wrench, AlertTriangle, 
+5:  Activity, Zap, Info, Play, FileCheck, CheckCircle, Package,
+6:  ScanLine, ListChecks, Barcode, CheckCircle2, ArrowRightLeft,
+7:  XCircle, Scan, Plus, Trash2
+8:} from 'lucide-react';
+9:import { Task, MoldRecord, MoldInventory, EquipRepair } from './types';
+10:import { mockTasks, mockEquipments, mockMoldRecords, mockMoldInventory, mockEquipRepairs } from './mockData';
+11:
+12:// --- Components ---
+13:
+14:const Header = ({ title, onBack }: { title: string, onBack?: () => void }) => (
+15:  <header className="bg-[#1e3b5f] text-white h-12 flex items-center px-4 justify-between shrink-0">
+16:    <div className="flex items-center w-1/3">
+17:      {onBack && (
+18:        <button onClick={onBack} className="p-1 hover:bg-white/10 rounded mr-2">
+19:          <ChevronLeft size={24} />
+20:        </button>
+21:      )}
+22:    </div>
+23:    <div className="text-lg font-medium tracking-wider w-1/3 text-center">{title}</div>
+24:    <div className="flex items-center justify-end w-1/3 space-x-2 text-sm">
+25:      <User size={18} />
+26:      <span>管理员</span>
+27:    </div>
+28:  </header>
+29:);
+30:
+31:const HomeMenu = ({ onNavigate }: { onNavigate: (page: string) => void }) => {
+32:  const menuItems = [
+33:    { icon: ClipboardList, label: '我的任务', id: 'tasks', color: 'text-blue-500' },
+34:    { icon: CheckSquare, label: '检验任务', id: 'inspect', color: 'text-green-500' },
+35:    { icon: Archive, label: '废品归集', id: 'scrap', color: 'text-gray-500' },
+36:    { icon: Settings, label: '设备点检', id: 'equip-check', color: 'text-indigo-500' },
+37:    { icon: Wrench, label: '设备定保', id: 'equip-maint', color: 'text-orange-500' },
+38:    { icon: AlertTriangle, label: '设备报修', id: 'equip-repair', color: 'text-red-500' },
+39:    { icon: Activity, label: '设备维修', id: 'equip-fix', color: 'text-cyan-500' },
+40:    { icon: Zap, label: '设备验收', id: 'equip-accept', color: 'text-yellow-500' },
+41:  ];
+42:
+43:  return (
+44:    <div className="p-8 grid grid-cols-4 gap-6 content-start bg-[#f3f4f6] h-full overflow-y-auto">
+45:      {menuItems.map((item) => (
+46:        <button
+47:          key={item.id}
+48:          onClick={() => onNavigate(item.id)}
+49:          className="bg-white p-6 rounded shadow-sm hover:shadow-md transition-shadow flex flex-col items-center justify-center space-y-4 h-40 border border-gray-100"
+50:        >
+51:          <div className={`p-4 bg-gray-50 rounded-full ${item.color}`}>
+52:            <item.icon size={48} strokeWidth={1.5} />
+53:          </div>
+54:          <span className="text-gray-700 font-medium text-lg">{item.label}</span>
+55:        </button>
+56:      ))}
+57:    </div>
+58:  );
+59:};
+60:
+61:const EquipCheckView = ({ onNavigate }: { onNavigate: (page: string) => void }) => {
+62:  const [showDetailModal, setShowDetailModal] = useState(false);
+63:  const [currentPartIndex, setCurrentPartIndex] = useState<number | null>(null);
+64:
+65:  const [parts, setParts] = useState([
+66:    {
+67:      id: 'p1',
+68:      name: '主设备',
+69:      result: true,
+70:      notes: '',
+71:      details: [
+72:        { id: 'd1', item: '设备表面8S，无锡灰残留', standard: '打扫清理', result: true, notes: '' },
+73:        { id: 'd2', item: '检查气管和接口有无漏气，阀门无损坏', standard: '无漏气，阀门无损坏', result: true, notes: '' },
+74:        { id: 'd3', item: '循环水管路无漏水，水质干净、水正常', standard: '无漏水，水质干净、水正常', result: true, notes: '' },
+75:        { id: 'd4', item: '使用无尘布+酒精擦拭上下铜轮表面', standard: '铜轮表面清洁，无凹槽', result: true, notes: '' },
+76:        { id: 'd5', item: '过桥导轮转动正常，无磨损', standard: '转动正常，无磨损', result: true, notes: '' },
+77:      ]
+78:    }
+79:  ]);
+80:
+81:  const openDetails = (idx: number) => {
+82:    setCurrentPartIndex(idx);
+83:    setShowDetailModal(true);
+84:  };
+85:
+86:  const ToggleSwitch = ({ checked, onChange }: { checked: boolean, onChange: (c: boolean) => void }) => (
+87:    <div 
+88:      className={`w-14 h-7 rounded-full relative cursor-pointer transition-colors shadow-inner border border-gray-300 ${checked ? 'bg-green-500' : 'bg-gray-200'}`}
+89:      onClick={() => onChange(!checked)}
+90:    >
+91:      <div className={`w-6 h-6 bg-white rounded-full absolute top-[1px] shadow transition-transform ${checked ? 'translate-x-[26px]' : 'translate-x-[1px]'}`} />
+92:    </div>
+93:  );
+94:
+95:  return (
+96:    <div className="flex flex-col h-full bg-white overflow-y-auto p-6">
+97:      <div className="max-w-6xl mx-auto w-full">
+98:        <div className="flex justify-between items-center mb-6 pb-4 border-b">
+99:          <h2 className="text-2xl font-bold text-gray-800 flex items-center">
+100:            <Settings className="mr-3 text-indigo-500" />
+101:            设备点检
+102:          </h2>
+103:        </div>
+104:
+105:        <div className="flex justify-center mb-6">
+106:          <span className="text-red-500 font-bold text-xl tracking-widest">设备点检</span>
+107:        </div>
+108:
+109:        <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-6 mb-8 items-end">
+110:          <div className="flex flex-col">
+111:            <label className="text-sm font-bold text-gray-700 mb-1">设备名称</label>
+112:            <select className="border border-gray-300 rounded-md px-3 py-2 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+113:              <option>汇流带生产线 (HX-Y4)</option>
+114:              <option>拉丝机A</option>
+115:            </select>
+116:          </div>
+117:          
+118:          <div className="flex flex-col">
+119:            <div className="text-sm font-bold text-gray-700 mb-1">设备代码</div>
+120:            <div className="text-gray-900 font-medium py-2">HX-Y4</div>
+121:          </div>
+122:
+123:          <div className="flex flex-col">
+124:            <div className="text-sm font-bold text-gray-700 mb-1">设备地址</div>
+125:            <div className="text-gray-900 font-medium py-2">2#厂房1F西-压延</div>
+126:          </div>
+127:
+128:          <div className="flex flex-col">
+129:            <label className="text-sm font-bold text-gray-700 mb-1">点检时间</label>
+130:            <input type="datetime-local" defaultValue="2026-05-09T16:08" className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+131:          </div>
+132:
+133:          <div className="flex flex-col">
+134:            <label className="text-sm font-bold text-gray-700 mb-1">点检人</label>
+135:            <div className="flex items-center space-x-2 h-[42px]">
+136:              <div className="p-1.5 border border-gray-400 rounded-full hover:bg-gray-100 cursor-pointer text-gray-700">
+137:                <Search size={20} />
+138:              </div>
+139:              <span className="font-bold text-gray-900 border-b border-gray-300 px-2 pb-1">苏声波</span>
+140:            </div>
+141:          </div>
+142:
+143:          <div className="flex flex-col">
+144:            <label className="text-sm font-bold text-gray-700 mb-1">点检类型</label>
+145:            <select className="border border-gray-300 rounded-md px-3 py-2 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+146:              <option>设备点检</option>
+147:              <option>日常保养</option>
+148:            </select>
+149:          </div>
+150:        </div>
+151:
+152:        <table className="w-full text-sm text-center border-collapse border border-gray-300 mb-8">
+153:          <thead className="bg-[#f2f2f2] font-bold text-black border-b border-gray-300">
+154:            <tr>
+155:              <th className="border-r border-gray-300 p-3 w-1/3">点检部位</th>
+156:              <th className="border-r border-gray-300 p-3 w-1/3">部位点检结果</th>
+157:              <th className="p-3 w-1/3">说明</th>
+158:            </tr>
+159:          </thead>
+160:          <tbody>
+161:            {parts.map((p, idx) => (
+162:              <tr key={p.id} className="border-b border-gray-300">
+163:                 <td className="border-r border-gray-300 p-3 bg-[#baddf5] relative">
+164:                   <button 
+165:                     onClick={() => openDetails(idx)} 
+166:                     className="absolute left-6 top-1/2 -translate-y-1/2 bg-[#3399cc] text-white px-5 py-1.5 rounded text-sm font-bold shadow hover:bg-[#2888b8] transition-colors"
+167:                   >
+168:                     明细
+169:                   </button>
+170:                   <span className="font-medium text-gray-800 text-lg">{p.name}</span>
+171:                 </td>
+172:                 <td className="border-r border-gray-300 p-3 bg-[#89cdee]">
+173:                   <div className="flex flex-col items-center justify-center space-y-2">
+174:                     <ToggleSwitch checked={p.result} onChange={(c) => {
+175:                       const np = [...parts]; np[idx].result = c; setParts(np);
+176:                     }} />
+177:                     {!p.result && (
+178:                       <button 
+179:                         onClick={() => onNavigate('equip-repair')}
+180:                         className="text-xs bg-red-100 text-red-600 px-3 py-1 rounded shadow-sm hover:bg-red-200"
+181:                       >
+182:                         去报修
+183:                       </button>
+184:                     )}
+185:                   </div>
+186:                 </td>
+187:                 <td className="p-3 bg-[#e6f4fc]">
+188:                   <input type="text" className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" value={p.notes} onChange={(e) => {
+189:                     const np = [...parts]; np[idx].notes = e.target.value; setParts(np);
+190:                   }} />
+191:                 </td>
+192:              </tr>
+193:            ))}
+194:          </tbody>
+195:        </table>
+196:
+197:        <div className="mt-8 flex justify-center">
+198:           <button 
+199:             onClick={() => alert('保存成功！')}
+200:             className="bg-[#1976d2] hover:bg-[#1565c0] text-white px-16 py-3 rounded text-lg font-bold shadow-md transition-colors"
+201:           >
+202:             保存
+203:           </button>
+204:        </div>
+205:
+206:        {/* Modal Overlay */}
+207:        {showDetailModal && currentPartIndex !== null && (
+208:          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+209:             <div className="bg-white shadow-2xl w-full max-w-4xl flex flex-col border border-gray-300">
+210:               <div className="overflow-auto max-h-[70vh]">
+211:                 <table className="w-full text-sm text-center border-collapse">
+212:                   <thead className="bg-[#f0f0f0] font-bold text-gray-800 sticky top-0 shadow-sm z-10 border-b border-gray-300">
+213:                     <tr>
+214:                       <th className="border-r border-gray-300 p-3 w-[40%]">点检项目</th>
+215:                       <th className="border-r border-gray-300 p-3 w-[25%]">标准</th>
+216:                       <th className="border-r border-gray-300 p-3 w-[15%]">点检结果</th>
+217:                       <th className="p-3 w-[20%]">说明</th>
+218:                     </tr>
+219:                   </thead>
+220:                   <tbody>
+221:                     {parts[currentPartIndex].details.map((d, dIdx) => (
+222:                       <tr key={d.id} className="hover:bg-blue-50 border-b border-gray-300 transition-colors">
+223:                         <td className="border-r border-gray-300 p-3 text-left font-medium text-gray-700">{d.item}</td>
+224:                         <td className="border-r border-gray-300 p-3 text-left text-gray-600">{d.standard}</td>
+225:                         <td className="border-r border-gray-300 p-3">
+226:                           <div className="flex flex-col items-center justify-center space-y-2">
+227:                             <ToggleSwitch checked={d.result} onChange={(c) => {
+228:                                const np = [...parts];
+229:                                np[currentPartIndex].details[dIdx].result = c;
+230:                                setParts(np);
+231:                             }} />
+232:                             {!d.result && (
+233:                               <button 
+234:                                 onClick={() => {
+235:                                   setShowDetailModal(false);
+236:                                   onNavigate('equip-repair');
+237:                                 }}
+238:                                 className="text-xs bg-red-100 text-red-600 px-3 py-1 rounded shadow-sm hover:bg-red-200"
+239:                               >
+240:                                 去报修
+241:                               </button>
+242:                             )}
+243:                           </div>
+244:                         </td>
+245:                         <td className="p-3">
+246:                           <input type="text" className="w-full border border-gray-300 rounded px-2 py-1.5 focus:border-blue-500 focus:outline-none" value={d.notes} onChange={(e) => {
+247:                             const np = [...parts];
+248:                             np[currentPartIndex].details[dIdx].notes = e.target.value;
+249:                             setParts(np);
+250:                           }} />
+251:                         </td>
+252:                       </tr>
+253:                     ))}
+254:                   </tbody>
+255:                 </table>
+256:               </div>
+257:               <div className="p-5 border-t border-gray-300 flex justify-center space-x-6">
+258:                 <button onClick={() => setShowDetailModal(false)} className="bg-[#1976d2] text-white px-10 py-2.5 rounded font-bold hover:bg-[#1565c0] transition-colors shadow">
+259:                   确认
+260:                 </button>
+261:                 <button onClick={() => setShowDetailModal(false)} className="bg-red-500 text-white px-10 py-2.5 rounded font-bold hover:bg-red-600 transition-colors shadow">
+262:                   取消
+263:                 </button>
+264:               </div>
+265:             </div>
+266:          </div>
+267:        )}
+268:      </div>
+269:    </div>
+270:  );
+271:};
+272:
+273:
+274:
+275:const EquipFixView = () => {
+276:  const [activeTab, setActiveTab] = useState<'report' | 'tasks' | 'accept'>('tasks');
+277:  const [showProgress, setShowProgress] = useState(false);
+278:
+279:  return (
+280:    <div className="flex flex-col h-full bg-[#f3f4f6]">
+281:      {/* Top Tabs */}
+282:      <div className="flex space-x-1 border-b px-2 bg-white pt-2 shrink-0">
+283:        <button 
+284:          onClick={() => setActiveTab('report')}
+285:          className={`px-4 py-2 text-[17px] tracking-widest leading-loose ${activeTab === 'report' ? 'text-black font-bold border-b-[3px] border-black' : 'text-gray-600 hover:text-black font-medium'}`}
+286:        >
+287:          故障报修
+288:        </button>
+289:        <button 
+290:          onClick={() => setActiveTab('tasks')}
+291:          className={`px-4 py-2 text-[17px] tracking-widest leading-loose ${activeTab === 'tasks' ? 'text-black font-bold border-b-[3px] border-black' : 'text-gray-600 hover:text-black font-medium'}`}
+292:        >
+293:          维修任务
+294:        </button>
+295:        <button 
+296:          onClick={() => setActiveTab('accept')}
+297:          className={`px-4 py-2 text-[17px] tracking-widest leading-loose ${activeTab === 'accept' ? 'text-black font-bold border-b-[3px] border-black' : 'text-gray-600 hover:text-black font-medium'}`}
+298:        >
+299:          维修验收
+300:        </button>
+301:      </div>
+302:
+303:      <div className="flex-1 bg-[#a5a5a5] border border-gray-700 m-8 overflow-auto relative">
+304:        <table className="w-full text-left border-collapse table-fixed bg-transparent">
+305:          <thead>
+306:            <tr className="bg-[#f0f0f0] text-black border-b border-gray-500">
+307:              <th className="font-medium px-2 py-2 border-r border-gray-400 text-center text-lg w-[15%] tracking-widest">故障类型</th>
+308:              <th className="font-medium px-2 py-2 border-r border-gray-400 text-center text-lg w-[18%] tracking-widest">故障时间</th>
+309:              <th className="font-medium px-2 py-2 border-r border-gray-400 text-center text-lg w-[15%] tracking-widest">故障设备</th>
+310:              <th className="font-medium px-2 py-2 border-r border-gray-400 text-center text-lg w-[20%] tracking-widest">故障位置</th>
+311:              <th className="font-medium px-2 py-2 border-r border-gray-400 text-center text-lg w-[15%] tracking-widest">维修人员</th>
+312:              <th className="font-medium px-2 py-2 text-center text-lg w-[17%] tracking-widest">操作</th>
+313:            </tr>
+314:          </thead>
+315:          <tbody>
+316:            {activeTab === 'tasks' && (
+317:              <>
+318:                <tr className="border-[0]">
+319:                  <td className="px-2 py-3 text-center text-lg text-gray-800">电气故障</td>
+320:                  <td className="px-2 py-3 text-center text-lg text-gray-800">2026-05-11 14:30:00</td>
+321:                  <td className="px-2 py-3 text-center text-lg text-gray-800">拉丝机A</td>
+322:                  <td className="px-2 py-3 text-center text-lg text-gray-800">主控制柜</td>
+323:                  <td className="px-2 py-3 text-center text-lg text-gray-800">王工</td>
+324:                  <td className="px-2 py-3 text-center">
+325:                    <button 
+326:                      onClick={() => setShowProgress(true)}
+327:                      className="bg-transparent hover:bg-black/10 text-black px-4 py-1 rounded text-base border border-gray-600 tracking-wider">
+328:                      进度查看
+329:                    </button>
+330:                  </td>
+331:                </tr>
+332:                <tr className="border-[0]">
+333:                  <td className="px-2 py-3 text-center text-lg text-gray-800">机械故障</td>
+334:                  <td className="px-2 py-3 text-center text-lg text-gray-800">2026-05-10 09:15:00</td>
+335:                  <td className="px-2 py-3 text-center text-lg text-gray-800">漆包线机</td>
+336:                  <td className="px-2 py-3 text-center text-lg text-gray-800">收线端轴承</td>
+337:                  <td className="px-2 py-3 text-center text-lg text-gray-800">李工</td>
+338:                  <td className="px-2 py-3 text-center">
+339:                    <button 
+340:                      onClick={() => setShowProgress(true)}
+341:                      className="bg-transparent hover:bg-black/10 text-black px-4 py-1 rounded text-base border border-gray-600 tracking-wider">
+342:                      进度查看
+343:                    </button>
+344:                  </td>
+345:                </tr>
+346:              </>
+347:            )}
+348:            {activeTab === 'report' && (
+349:              <tr>
+350:                <td colSpan={6} className="text-center py-8 text-gray-600 italic">暂无报修记录</td>
+351:              </tr>
+352:            )}
+353:            {activeTab === 'accept' && (
+354:              <tr>
+355:                <td colSpan={6} className="text-center py-8 text-gray-600 italic">暂无验收记录</td>
+356:              </tr>
+357:            )}
+358:          </tbody>
+359:        </table>
+360:      </div>
+361:
+362:      {showProgress && (
+363:        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+364:          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg flex flex-col">
+365:            <div className="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-lg">
+366:              <h3 className="text-lg font-bold text-gray-800">维修进度查看</h3>
+367:              <button onClick={() => setShowProgress(false)} className="text-gray-500 hover:text-black">
+368:                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+369:              </button>
+370:            </div>
+371:            <div className="p-6">
+372:              <div className="relative border-l-2 border-blue-500 ml-4 space-y-8">
+373:                <div className="relative">
+374:                  <div className="absolute -left-[25px] bg-blue-500 rounded-full w-4 h-4 border-4 border-white"></div>
+375:                  <div className="ml-4">
+376:                    <h4 className="font-bold text-gray-800 text-sm">已接单</h4>
+377:                    <p className="text-xs text-gray-500 mt-1">2026-05-11 14:35:00 - 王工</p>
+378:                  </div>
+379:                </div>
+380:                <div className="relative">
+381:                  <div className="absolute -left-[25px] bg-blue-500 rounded-full w-4 h-4 border-4 border-white"></div>
+382:                  <div className="ml-4">
+383:                    <h4 className="font-bold text-gray-800 text-sm">到达现场，开始排查故障</h4>
+384:                    <p className="text-xs text-gray-500 mt-1">2026-05-11 14:45:00</p>
+385:                  </div>
+386:                </div>
+387:                <div className="relative">
+388:                  <div className="absolute -left-[25px] bg-gray-300 rounded-full w-4 h-4 border-4 border-white"></div>
+389:                  <div className="ml-4">
+390:                    <h4 className="font-bold text-gray-500 text-sm">更换备件中</h4>
+391:                    <p className="text-xs text-gray-400 mt-1">待执行</p>
+392:                  </div>
+393:                </div>
+394:                <div className="relative">
+395:                  <div className="absolute -left-[25px] bg-gray-300 rounded-full w-4 h-4 border-4 border-white"></div>
+396:                  <div className="ml-4">
+397:                    <h4 className="font-bold text-gray-500 text-sm">维修完成，待验收</h4>
+398:                    <p className="text-xs text-gray-400 mt-1">待执行</p>
+399:                  </div>
+400:                </div>
+401:              </div>
+402:            </div>
+403:            <div className="p-4 border-t flex justify-end bg-gray-50 rounded-b-lg">
+404:              <button onClick={() => setShowProgress(false)} className="bg-[#1976d2] hover:bg-[#1565c0] text-white px-6 py-2 rounded font-medium">关闭</button>
+405:            </div>
+406:          </div>
+407:        </div>
+408:      )}
+409:    </div>
+410:  );
+411:};
+412:
+413:const EquipAcceptView = ({ onBack }: { onBack: () => void }) => {
+414:  const [repairs, setRepairs] = useState<EquipRepair[]>(mockEquipRepairs);
+415:  const [acceptingRepair, setAcceptingRepair] = useState<EquipRepair | null>(null);
+416:
+417:  const handleAcceptAction = (isPass: boolean) => {
+418:    if (acceptingRepair) {
+419:       setRepairs(repairs.map(r => r.id === acceptingRepair.id ? { 
+420:         ...r, 
+421:         status: isPass ? '已验收' : '待维修'
+422:       } : r));
+423:       alert(isPass ? '验收成功' : '已驳回重修');
+424:       setAcceptingRepair(null);
+425:    }
+426:  };
+427:
+428:  return (
+429:    <div className="flex flex-col h-full bg-white font-sans overflow-hidden">
+430:      {/* Title Header */}
+431:      <div className="bg-[#1e3b5f] px-4 py-3 flex items-center justify-between shrink-0 text-white shadow-sm">
+432:        <span className="text-[19px] font-bold tracking-widest">设备维修进度查看</span>
+433:        <button onClick={onBack} className="text-white hover:text-gray-200 outline-none p-1 rounded font-bold border border-transparent hover:border-white text-sm">
+434:          返回主页
+435:        </button>
+436:      </div>
+437:
+438:      {/* Main Table Content */}
+439:      <div className="flex-1 overflow-auto border-b-2 border-black">
+440:        <table className="w-full text-center text-[15px] border-collapse min-w-max">
+441:          <thead className="bg-[#f2f2f2] border-b-2 border-black text-black">
+442:            <tr>
+443:              <th className="py-3 px-2 font-bold whitespace-nowrap border-b-2 border-black">序号</th>
+444:              <th className="py-3 px-2 font-bold whitespace-nowrap border-b-2 border-black">验收</th>
+445:              <th className="py-3 px-2 font-bold border-b-2 border-black">报修单号<br/>报修时间</th>
+446:              <th className="py-3 px-2 font-bold whitespace-nowrap border-b-2 border-black">维修状态</th>
+447:              <th className="py-3 px-2 font-bold border-b-2 border-black">设备名称<br/>报修类型</th>
+448:              <th className="py-3 px-2 font-bold border-b-2 border-black">子设备<br/>故障描述</th>
+449:              <th className="py-3 px-2 font-bold border-b-2 border-black">设备状态</th>
+450:              <th className="py-3 px-2 font-bold border-b-2 border-black">备品备件</th>
+451:              <th className="py-3 px-2 font-bold border-b-2 border-black">维修完成时间</th>
+452:              <th className="py-3 px-2 font-bold border-b-2 border-black">报修人<br/>维修人</th>
+453:              <th className="py-3 px-2 font-bold border-b-2 border-black">维修时间</th>
+454:              <th className="py-3 px-2 font-bold border-b-2 border-black">实际故障描述</th>
+455:              <th className="py-3 px-2 font-bold border-b-2 border-black">维修内容</th>
+456:              <th className="py-3 px-2 font-bold border-b-2 border-black">备注</th>
+457:            </tr>
+458:          </thead>
+459:          <tbody>
+460:            {repairs.map((r, index) => (
+461:              <tr key={r.id} className="border-b border-gray-300 hover:bg-blue-50 text-[14px]">
+462:                <td className="py-2 px-2 font-bold">{index + 1}</td>
+463:                <td className="py-2 px-2 whitespace-nowrap">
+464:                  {r.status === '待验收' && (
+465:                    <button 
+466:                      onClick={() => setAcceptingRepair(r)} 
+467:                      className="bg-[#1976d2] text-white hover:bg-[#1565c0] px-6 py-1.5 font-bold tracking-widest shadow rounded"
+468:                    >
+469:                      验收
+470:                    </button>
+471:                  )}
+472:                </td>
+473:                <td className="py-2 px-2">
+474:                  <div className="font-bold text-gray-800">{r.reportNo}</div>
+475:                  <div className="text-gray-500 mt-1">{r.reportTime}</div>
+476:                </td>
+477:                <td className="py-2 px-2 font-bold whitespace-nowrap">{r.status}</td>
+478:                <td className="py-2 px-2">
+479:                  <div className="text-gray-800">{r.equipName}</div>
+480:                  <div className="text-gray-500 mt-1">{r.reportType}</div>
+481:                </td>
+482:                <td className="py-2 px-2">
+483:                  <div className="text-gray-800">{r.subEquip}</div>
+484:                  <div className="text-gray-500 mt-1">{r.faultDesc}</div>
+485:                </td>
+486:                <td className="py-2 px-2 font-bold text-blue-800">{r.equipStatus}</td>
+487:                <td className="py-2 px-2 text-gray-600 max-w-[150px] truncate" title={r.spareParts}>{r.spareParts      {acceptingRepair && (
+488:        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+489:          <div className="bg-white rounded-lg shadow-2xl w-full max-w-[400px] flex flex-col font-sans overflow-hidden">
+490:            <div className="px-5 py-4 flex justify-between items-center bg-white border-b border-gray-100">
+491:               <h3 className="text-lg text-gray-800 font-medium">设备维修验收</h3>
+492:               <button onClick={() => setAcceptingRepair(null)} className="text-gray-400 hover:text-gray-600 transition-colors">
+493:                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+494:               </button>
+495:            </div>
+496:            
+497:            <div className="p-8 flex items-center justify-center space-x-6 bg-white">
+498:                 <button type="button" onClick={() => handleAcceptAction(false)} className="w-[120px] py-2 bg-[#f5f5f5] text-gray-700 rounded-[4px] text-[15px] hover:bg-gray-200 border border-gray-300 transition-colors">驳回重修</button>
+499:                 <button type="button" onClick={() => handleAcceptAction(true)} className="w-[120px] py-2 bg-[#1976d2] text-white rounded-[4px] text-[15px] hover:bg-[#1565c0] shadow-sm transition-colors border border-[#1976d2]">验收通过</button>
+500:            </div>
+501:          </div>
+502:        </div>
+503:      )}                <label className="block text-gray-800 font-bold text-lg mb-1">备品备件<span className="text-sm font-normal text-gray-500 ml-2">（设备部在维修时上传的备品备件）</span></label>
+504:                   <textarea name="spareParts" defaultValue={acceptingRepair.spareParts || '暂无备件更换记录'} readOnly rows={4} className="w-full border-2 border-gray-300 p-3 rounded font-bold text-gray-700 bg-gray-100 resize-none focus:outline-none"></textarea>
+505:                 </div>
+506:               </div>
+507:               
+508:               <div className="pt-6 flex justify-end space-x-6 border-t border-gray-200 mt-6">
+509:                  <button type="button" onClick={() => setAcceptingRepair(null)} className="px-8 py-4 bg-gray-200 text-gray-800 rounded font-bold text-xl hover:bg-gray-300 tracking-widest border border-gray-300">取消</button>
+510:                  <button type="submit" className="px-10 py-4 bg-[#1976d2] text-white rounded font-bold text-xl hover:bg-[#1565c0] tracking-widest shadow sm:min-w-[200px]">确认验收</button>
+511:               </div>
+512:            </form>
+513:          </div>
+514:        </div>
+515:      )}
+516:    </div>
+517:  );
+518:};
+519:
+520:const EquipmentRepairView = () => {
+521:  return (
+522:    <div className="flex flex-col h-full bg-[#f3f4f6] font-sans overflow-hidden">
+523:      {/* Top Controls / Tabs */}
+524:      <div className="bg-white border-b border-gray-300 px-6 py-3 flex items-center justify-between shrink-0 shadow-sm">
+525:        <div className="flex items-center space-x-8 text-[16px] font-bold">
+526:          <span className="text-[#1976d2] cursor-pointer border-b-2 border-[#1976d2] pb-1">故障报修</span>
+527:          <span className="text-gray-500 cursor-pointer hover:text-gray-800 pb-1">维修任务</span>
+528:          <span className="text-gray-500 cursor-pointer hover:text-gray-800 pb-1">维修验收</span>
+529:        </div>
+530:        <div className="flex items-center text-[15px] font-bold bg-[#fdfdfd] border border-gray-300 rounded-sm shadow-inner px-2 py-1">
+531:            <span className="text-gray-800 whitespace-nowrap px-1">扫工卡：</span>
+532:            <input type="text" className="w-56 text-black outline-none bg-transparent" />
+533:        </div>
+534:      </div>
+535:
+536:      {/* Form Content */}
+537:      <div className="flex-1 overflow-auto p-6 flex justify-center">
+538:         <div className="w-full max-w-5xl space-y-6 bg-white p-10 border border-gray-200 shadow-sm">
+539:            {/* Row 1 */}
+540:            <div className="flex space-x-12">
+541:               <div className="flex items-center flex-1">
+542:                  <span className="w-24 text-right font-bold text-gray-800 mr-4 text-[16px]">安装地点：</span>
+543:                  <select className="flex-1 border border-gray-300 p-2 outline-none bg-[#fdfdfd] text-gray-800">
+544:                    <option>上引</option>
+545:                  </select>
+546:               </div>
+547:               <div className="flex items-center flex-1">
+548:                  <span className="w-24 text-right font-bold text-gray-800 mr-4 text-[16px]">设备类别：</span>
+549:                  <select className="flex-1 border border-gray-300 p-2 outline-none bg-[#fdfdfd] text-gray-800">
+550:                    <option>生产设备</option>
+551:                  </select>
+552:               </div>
+553:            </div>
+554:
+555:            {/* Row 2 */}
+556:            <div className="flex space-x-12">
+557:               <div className="flex items-center flex-1">
+558:                  <span className="w-24 text-right font-bold text-gray-800 mr-4 text-[16px]">报修设备：</span>
+559:                  <select className="flex-1 border border-gray-300 p-2 outline-none bg-[#fdfdfd] text-gray-800">
+560:                    <option>SY01*上引法无氧铜杆连铸机组01*SL10-Q</option>
+561:                  </select>
+562:               </div>
+563:               <div className="flex items-center flex-1">
+564:                  <span className="w-24 text-right font-bold text-gray-800 mr-4 text-[16px]">状态：</span>
+565:                  <span className="text-[16px] font-medium text-gray-800">启用</span>
+566:               </div>
+567:            </div>
+568:
+569:            {/* Row 3 */}
+570:            <div className="flex space-x-12">
+571:               <div className="flex items-center flex-1">
+572:                  <span className="w-24 text-right font-bold text-gray-800 mr-4 text-[16px]">故障日期：</span>
+573:                  <input type="text" defaultValue="2026-05-10 12:04:36" className="flex-1 border border-gray-300 p-2 outline-none shadow-inner text-gray-800 bg-[#fdfdfd]" />
+574:               </div>
+575:               <div className="flex items-center flex-1">
+576:               </div>
+577:            </div>
+578:
+579:            {/* Row 4 */}
+580:            <div className="flex">
+581:               <div className="flex items-start flex-1">
+582:                  <span className="w-24 text-right font-bold text-gray-800 mr-4 text-[16px] pt-3">故障类别：</span>
+583:                  <div className="border border-gray-200 p-5 shrink-0 flex flex-col space-y-4 shadow-sm w-64 bg-[#fbfbfb]">
+584:                     <label className="flex items-center space-x-3 cursor-pointer">
+585:                       <input type="radio" name="fault_type" className="w-[16px] h-[16px] accent-[#1976d2] outline-none" defaultChecked />
+586:                       <span className="font-bold text-gray-800 text-[16px]">电气故障</span>
+587:                     </label>
+588:                     <label className="flex items-center space-x-3 cursor-pointer">
+589:                       <input type="radio" name="fault_type" className="w-[16px] h-[16px] accent-[#1976d2] outline-none" />
+590:                       <span className="font-bold text-gray-800 text-[16px]">机械故障</span>
+591:                     </label>
+592:                  </div>
+593:               </div>
+594:            </div>
+595:
+596:            {/* Row 5 */}
+597:            <div className="flex">
+598:               <div className="flex items-center w-[calc(50%-1.5rem)]">
+599:                  <span className="w-24 text-right font-bold text-gray-800 mr-4 text-[16px]">故障位置：</span>
+600:                  <select className="flex-1 border border-gray-300 p-2 outline-none bg-[#fdfdfd] text-gray-800">
+601:                    <option>牵引装置</option>
+602:                  </select>
+603:               </div>
+604:            </div>
+605:
+606:            {/* Row 6 */}
+607:            <div className="flex mt-2">
+608:               <div className="flex items-center w-full">
+609:                  <span className="w-24 text-right font-bold text-gray-800 mr-4 text-[16px]">影响工艺：</span>
+610:                  <label className="flex items-center space-x-2 cursor-pointer">
+611:                     <input type="checkbox" className="w-4 h-4 accent-[#1976d2] outline-none" />
+612:                     <span className="font-medium text-gray-800 text-[16px]">是</span>
+613:                  </label>
+614:               </div>
+615:            </div>
+616:
+617:            {/* Submit Button */}
+618:            <div className="flex justify-center pt-8 pb-4">
+619:               <button className="bg-[#1976d2] hover:bg-[#1565c0] text-white font-bold text-2xl py-3 w-[400px] shadow-sm transition-colors rounded-[2px] tracking-[0.5em]">
+620:                 确定
+621:               </button>
+622:            </div>
+623:
+624:         </div>
+625:      </div>
+626:    </div>
+627:  );
+628:};
+629:
+630:const TaskExecutionView = ({ task, onBack, onNavigate, onStartOrder }: { task: Task, onBack: () => void, onNavigate: (view: string) => void, onStartOrder: () => void }) => {
+631:  const [showDebugPrompt, setShowDebugPrompt] = useState(false);
+632:  
+633:  return (
+634:    <div className="flex flex-col h-full bg-[#f3f4f6] font-sans">
+635:      <div className="flex-1 flex flex-col bg-white border m-2 shadow-sm overflow-y-auto">
+636:        {/* Top Header */}
+637:        <div className="bg-[#1e3b5f] flex justify-between items-center px-4 py-2 border-b border-[#1e3b5f] shrink-0">
+638:          <span className="font-bold text-white text-[15px]">当前任务区</span>
+639:          <div className="space-x-2 flex">
+640:            <button className="bg-white/10 border border-white/20 px-3 rounded hover:bg-white/20 text-white shadow-sm leading-tight text-sm py-1">刷新</button>
+641:            <button onClick={onBack} className="bg-white/10 border border-white/20 px-3 rounded hover:bg-white/20 text-white shadow-sm leading-tight text-sm py-1">后退</button>
+642:          </div>
+643:        </div>
+644:
+645:        {/* Task Info Area */}
+646:        <div className="bg-white p-4 border-b border-gray-400 text-black grid grid-cols-4 gap-y-3 text-[13px] shrink-0">
+647:          {/* Row 1 */}
+648:          <div className="flex items-center"><span className="font-bold w-20">设备名称:</span> QB001</div>
+649:          <div className="flex items-center whitespace-nowrap"><span className="font-bold w-20 shrink-0">产品编号:</span> 
+650:            <select className="border border-gray-400 bg-white ml-1 px-1 py-0.5 text-sm">
+651:              <option>湘电动力25030729</option>
+652:            </select>
+653:          </div>
+654:          <div className="flex items-center pl-4"><span className="font-bold w-20">产品规格:</span> 3.00*5.00</div>
+655:          <div className="flex items-center justify-end"><span className="font-bold mr-2">最小长度:</span> <span className="w-12">1m</span></div>
+656:
+657:          {/* Row 2 */}
+658:          <div className="flex items-center"><span className="font-bold w-20">产品型号:</span> QQB-2/120</div>
+659:          <div className="flex items-center"><span className="font-bold w-20">交货日期:</span> 2025-03-19</div>
+660:          <div className="flex items-center col-span-2 pl-4">
+661:            <span className="font-bold w-20 shrink-0">已完成量:</span> 
+662:            <span className="mr-8">4 件 4 段 32 Kg</span>
+663:            <span className="font-bold mr-2">已称重:</span> 
+664:            <span>0 件 0 Kg</span>
+665:          </div>
+666:
+667:          {/* Row 3 */}
+668:          <div className="flex items-center"><span className="font-bold w-20">本道工序:</span> 漆包</div>
+669:          <div className="flex items-center"><span className="font-bold w-20">流向工序:</span> 仓库</div>
+670:          <div className="flex items-center pl-4"><span className="font-bold w-20">派工段数:</span> 10 段</div>
+671:          <div className="flex items-center justify-end"><span className="font-bold mr-2">开机/工艺裕量:</span> <span className="w-12">-m / 0m</span></div>
+672:
+673:          {/* Row 4 */}
+674:          <div className="flex items-center col-span-2"><span className="font-bold w-20">盘具型号:</span> PC200-180/200*108*132*51</div>
+675:          <div className="flex items-center pl-4"><span className="font-bold shrink-0 mr-2">单盘长度×件数:</span> 50 米 × 10 件</div>
+676:          <div className="flex items-center justify-end"><span className="font-bold shrink-0 mr-2">单盘重量×件数:</span> 0.13 KG × 10 件</div>
+677:
+678:          {/* Row 5 */}
+679:          <div className="flex items-center space-x-2">
+680:             <span className={`px-2 py-0.5 rounded text-xs font-bold ${task.orderStatus === '已开工' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{task.orderStatus || '未开工'}</span>
+681:             {task.orderStatus !== '已开工' && (
+682:               <button onClick={onStartOrder} className="bg-[#1976d2] outline-none text-white text-xs px-2 py-0.5 rounded hover:bg-[#1565c0] shadow-sm">
+683:                 确认开工
+684:               </button>
+685:             )}
+686:             <span className={`px-2 py-0.5 rounded text-xs font-bold ${task.materialLoadStatus === '已上料' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{task.materialLoadStatus || '未上料'}</span>
+687:             <span className={`px-2 py-0.5 rounded text-xs font-bold ${task.moldStatus === '已上模' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{task.moldStatus || '未上模'}</span>
+688:          </div>
+689:          <div className="flex items-center"><span className="font-bold w-20">当前状态:</span> 待下盘</div>
+690:          <div className="flex items-center col-span-2 pl-4">
+691:            <span className="font-bold w-20">当前条码:</span> 
+692:            <span className="mr-6 tracking-wider">2503072902001016</span>
+693:            <button className="bg-[#1976d2] hover:bg-[#1565c0] text-white px-3 py-1 rounded shadow-sm">切换产品编号</button>
+694:          </div>
+695:        </div>
+696:
+697:        {/* Operation Area Header */}
+698:        <div className="bg-[#1976d2] px-4 py-2 border-b border-[#1976d2] shrink-0">
+699:          <span className="font-bold text-white text-[15px]">操作区</span>
+700:        </div>
+701:
+702:        {/* Operation Area Content */}
+703:        <div className="flex-1 bg-white p-8 flex flex-col space-y-8">
+704:          {/* P1 */}
+705:          <div className="flex flex-col">
+706:            <div className="font-bold text-gray-800 mb-3 text-[15px]">生产准备操作：</div>
+707:            <div className="flex space-x-10 pl-6">
+708:              <OpButton onClick={() => onNavigate('instruction-manual')}>作业指导书查看</OpButton>
+709:              <OpButton>任务进度查询</OpButton>
+710:              <OpButton onClick={() => onNavigate('material-load')}>开机上料</OpButton>
+711:              <OpButton onClick={() => setShowDebugPrompt(true)}>调试检</OpButton>
+712:              <OpButton onClick={() => onNavigate('material-substitute')}>替代料申请</OpButton>
+713:            </div>
+714:          </div>
+715:          {/* P2 */}
+716:          <div className="flex flex-col">
+717:            <div className="font-bold text-gray-800 mb-3 text-[15px]">生产过程操作：</div>
+718:            <div className="flex space-x-10 pl-6">
+719:              <OpButton>换料</OpButton>
+720:              <OpButton>焊接</OpButton>
+721:              <OpButton onClick={() => onNavigate('production-report')}>下盘</OpButton>
+722:              <OpButton onClick={() => onNavigate('product-handover')}>产品交班</OpButton>
+723:            </div>
+724:          </div>
+725:          {/* P3 */}
+726:          <div className="flex flex-col">
+727:            <div className="font-bold text-gray-800 mb-3 text-[15px]">生产后续操作：</div>
+728:            <div className="flex space-x-10 pl-6">
+729:              <OpButton onClick={() => onNavigate('unload')}>下料</OpButton>
+730:              <OpButton>退料</OpButton>
+731:              <OpButton onClick={() => onNavigate('replenish')}>补料申请</OpButton>
+732:              <OpButton>不合格品查询</OpButton>
+733:              <OpButton onClick={() => onNavigate('tail-weigh')}>尾料称重</OpButton>
+734:            </div>
+735:          </div>
+736:          {/* P4 */}
+737:          <div className="flex flex-col">
+738:            <div className="font-bold text-gray-800 mb-3 text-[15px]">废品处理操作：</div>
+739:            <div className="flex space-x-10 pl-6">
+740:              <OpButton onClick={() => onNavigate('scrap')}>废品归集</OpButton>
+741:              <OpButton onClick={() => onNavigate('scrap-storage')}>废品入库</OpButton>
+742:              <OpButton onClick={() => onNavigate('scrap-handover')}>交废入库</OpButton>
+743:              <OpButton onClick={() => onNavigate('ncr')}>发起NCR</OpButton>
+744:            </div>
+745:          </div>
+746:        </div>
+747:
+748:        {/* Footer */}
+749:        <div className="bg-[#fdfbbc] border-t border-gray-400 px-4 py-1 shrink-0">
+750:          <div className="font-bold text-sm text-black">员工信息区</div>
+751:        </div>
+752:        <div className="bg-[#fdfbbc] flex items-center justify-between px-4 py-2 border-t border-gray-400 text-black text-[13px] font-bold shrink-0">
+753:          <div className="flex space-x-16">
+754:            <span>当前操作人员： 娄君</span>
+755:            <span>登录时间： 2026/5/10 11:41:46</span>
+756:          </div>
+757:          <div className="flex space-x-12 items-center">
+758:            <span>版本号： V89</span>
+759:            <div className="flex items-center space-x-1">
+760:              <div className="text-red-600 font-extrabold text-xl italic leading-none">G</div>
+761:              <div className="text-red-600 font-bold tracking-tight">金杯电工</div>
+762:              <div className="text-[8px] flex flex-col leading-none ml-0.5 text-gray-600">
+763:                <span>GOLD CUP ELECTRIC</span>
+764:              </div>
+765:            </div>
+766:          </div>
+767:        </div>
+768:      </div>
+769:
+770:      {showDebugPrompt && (
+771:        <div className="fixed inset-0 bg-transparent z-50 flex items-center justify-center font-sans drop-shadow-2xl">
+772:          <div className="bg-white border border-gray-400 w-[450px] shadow-[0_0_15px_rgba(0,0,0,0.2)] flex flex-col rounded-t-[3px]">
+773:            <div className="bg-[#1e3b5f] border-b border-[#1e3b5f] text-white px-2 py-1.5 text-md flex items-center tracking-wide font-medium">
+774:              <span>提示</span>
+775:            </div>
+776:            <div className="p-6 bg-white flex flex-row items-start space-x-4 flex-1 h-[140px]">
+777:              <div className="rounded-full bg-[#3587e8] text-white w-[36px] h-[36px] flex items-center justify-center font-serif text-2xl font-bold shrink-0 shadow-sm mt-1">i</div>
+778:              <div className="text-[19px] text-[#111] leading-snug pt-1">
+779:                是否推送当前流转卡号为<br/>2503072902001016的检验任务？
+780:              </div>
+781:            </div>
+782:            <div className="bg-[#f2f2f7] px-4 py-2.5 flex justify-end space-x-3 border-t border-gray-300">
+783:              <button 
+784:                onClick={() => setShowDebugPrompt(false)} 
+785:                className="bg-white border text-[14px] border-gray-300 hover:border-[#0078D7] hover:bg-[#e5f1fb] text-black font-medium px-8 py-1 min-w-[75px] focus:outline-none focus:ring-1 focus:ring-[#0078D7] rounded-[2px]"
+786:              >
+787:                是
+788:              </button>
+789:              <button 
+790:                onClick={() => setShowDebugPrompt(false)} 
+791:                className="bg-white border text-[14px] border-[#0078D7] hover:bg-[#e5f1fb] text-black font-medium px-8 py-1 min-w-[75px] focus:outline-none focus:ring-1 focus:ring-[#0078D7] rounded-[2px]"
+792:              >
+793:                否
+794:              </button>
+795:            </div>
+796:          </div>
+797:        </div>
+798:      )}
+799:    </div>
+800:  );
+801:};
+802:
+803:const OpButton = ({ children, onClick, className }: { children: React.ReactNode, onClick?: () => void, className?: string }) => (
+804:  <button onClick={onClick} className={className || "bg-[#1976d2] hover:bg-[#1565c0] text-white w-48 py-3 text-lg font-medium shadow-sm tracking-wide focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500 rounded"}>
+805:    {children}
+806:  </button>
+807:);
+808:
+809:const ReplenishView = ({ task, onBack }: { task: Task, onBack: () => void }) => {
+810:  return (
+811:    <div className="flex flex-col h-full bg-[#e8e9eb] font-sans">
+812:      <div className="bg-[#f0f0f0] flex justify-end items-center px-4 py-2 border-b border-gray-300 shrink-0 shadow-sm">
+813:        <button onClick={onBack} className="bg-white border text-black px-6 py-1.5 font-bold hover:bg-gray-50 shadow-sm text-sm border-blue-400">后退</button>
+814:      </div>
+815:
+816:      <div className="flex-1 bg-white mx-4 mt-4 mb-4 shadow-sm border border-gray-400 overflow-hidden flex flex-col">
+817:        {/* Info Box */}
+818:        <div className="border border-gray-300 m-1 text-[15px] text-gray-800">
+819:          <div className="bg-[#f8f9fa] border-b border-gray-300 py-2 px-3 font-bold tracking-wide">工单信息</div>
+820:          <div className="grid grid-cols-3 gap-x-4 gap-y-3 p-3 font-medium bg-white">
+821:            <div><span className="font-bold">生产订单号：</span>GXGD2403230042</div>
+822:            <div><span className="font-bold">产品编码：</span>202010120000000132</div>
+823:            <div><span className="font-bold">用户名：</span>陈明星</div>
+824:            <div><span className="font-bold">派工单号：</span>{task.id}</div>
+825:            <div><span className="font-bold">产品名称：</span>通用电缆绝缘线芯-麓谷</div>
+826:            <div><span className="font-bold">机台：</span>3#100挤橡机</div>
+827:            <div><span className="font-bold">型号：</span></div>
+828:            <div><span className="font-bold">规格：</span>1.5</div>
+829:            <div><span className="font-bold">工序：</span>{task.process}</div>
+830:          </div>
+831:        </div>
+832:
+833:        {/* Table Box */}
+834:        <div className="border border-gray-300 m-1 mt-0 flex flex-col flex-1 overflow-hidden">
+835:          <div className="bg-[#f8f9fa] border-b border-gray-300 py-2 px-3 font-bold tracking-wide shrink-0">原料、工序产品</div>
+836:          <div className="flex-1 overflow-auto bg-white">
+837:            <table className="w-full text-left text-[15px]">
+838:              <thead className="bg-[#f8f9fa] border-b border-gray-400 sticky top-0 font-bold z-10 text-gray-800">
+839:                <tr>
+840:                  <th className="py-2.5 px-3 font-bold whitespace-nowrap border-r border-gray-300">物料编码</th>
+841:                  <th className="py-2.5 px-3 font-bold whitespace-nowrap border-r border-gray-300">物料名称</th>
+842:                  <th className="py-2.5 px-3 font-bold whitespace-nowrap border-r border-gray-300">应领数量</th>
+843:                  <th className="py-2.5 px-3 font-bold whitespace-nowrap border-r border-gray-300">已领数量</th>
+844:                  <th className="py-2.5 px-3 font-bold whitespace-nowrap border-r border-gray-300">当前库存</th>
+845:                  <th className="py-2.5 px-3 font-bold whitespace-nowrap border-r border-gray-300">本次申请数量</th>
+846:                  <th className="py-2.5 px-3 font-bold whitespace-nowrap border-r border-gray-300">单位</th>
+847:                  <th className="py-2.5 px-3 font-bold whitespace-nowrap">申请原因</th>
+848:                </tr>
+849:              </thead>
+850:              <tbody>
+851:                <tr className="bg-[#0b78d0] text-white">
+852:                  <td className="py-2 px-3 border-r border-white/20 font-bold">10200045704</td>
+853:                  <td className="py-2 px-3 border-r border-white/20 font-bold">90℃乙丙橡皮绝缘</td>
+854:                  <td className="py-2 px-3 border-r border-white/20 font-bold">2833.6032</td>
+855:                  <td className="py-2 px-3 border-r border-white/20 font-bold">1056.0483</td>
+856:                  <td className="py-2 px-3 border-r border-white/20 font-bold">48880.1529</td>
+857:                  <td className="py-1 px-3 border-r border-white/20">
+858:                    <input type="number" defaultValue="0" className="w-24 text-black border border-gray-400 px-1.5 py-0.5 outline-none focus:border-[#0b78d0]" />
+859:                  </td>
+860:                  <td className="py-2 px-3 border-r border-white/20 font-bold">千克</td>
+861:                  <td className="py-1 px-3">
+862:                    <select className="text-black border border-gray-300 px-1 py-0.5 outline-none bg-gradient-to-b from-white to-gray-200 min-w-[120px]">
+863:                      <option>物料不足</option>
+864:                      <option>物料损坏</option>
+865:                      <option>其它</option>
+866:                    </select>
+867:                  </td>
+868:                </tr>
+869:                <tr className="bg-gray-200 min-h-[40px] h-10 border-t border-gray-400">
+870:                  <td colSpan={8}></td>
+871:                </tr>
+872:              </tbody>
+873:            </table>
+874:          </div>
+875:        </div>
+876:
+877:        {/* Footer */}
+878:        <div className="flex justify-center p-4 shrink-0 bg-[#f8f9fa] border-t border-gray-400">
+879:          <button className="bg-[#0b78d0] hover:bg-[#0962ab] text-white font-bold py-2.5 px-10 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0b78d0] tracking-widest text-[#f0f0f0]">发起申请</button>
+880:        </div>
+881:      </div>
+882:    </div>
+883:  );
+884:};
+885:
+886:const InstructionManualView = ({ onBack }: { onBack: () => void }) => {
+887:  return (
+888:    <div className="flex flex-col h-full bg-[#e8e9eb] font-sans">
+889:      <div className="bg-[#f0f0f0] flex justify-end items-center px-4 py-2 border-b border-gray-300 shrink-0 shadow-sm">
+890:        <button onClick={onBack} className="bg-white border text-black px-6 py-1.5 font-bold hover:bg-gray-50 shadow-sm text-sm border-blue-400">后退</button>
+891:      </div>
+892:
+893:      <div className="flex-1 bg-white mx-4 mt-4 shadow-sm border border-gray-400 overflow-auto">
+894:        <table className="w-full text-left border-collapse min-w-max text-[15px]">
+895:          <thead className="bg-[#f8f9fa] border-b border-gray-400">
+896:            <tr>
+897:              <th className="border-r border-gray-400 w-8"></th>
+898:              <th className="border-r border-gray-400 font-bold text-center py-2">Project</th>
+899:              <th className="border-r border-gray-400 font-bold text-center py-2">项目</th>
+900:              <th className="border-r border-gray-400 font-bold text-center py-2">设定值</th>
+901:              <th className="font-bold text-center py-2">单位</th>
+902:            </tr>
+903:          </thead>
+904:          <tbody>
+905:            <tr className="bg-[#0b78d0] text-white">
+906:              <td className="border-r border-white/20 bg-gray-200 text-gray-600 text-center text-xs">▶</td>
+907:              <td className="border-r border-white/20 px-3 py-1.5 font-bold">Enameled appearance</td>
+908:              <td className="border-r border-white/20 px-3 py-1.5 font-bold">漆包外观</td>
+909:              <td className="border-r border-white/20 px-3 py-1.5 font-bold">漆膜应光滑、连续、无裂纹、无气...</td>
+910:              <td className="px-3 py-1.5">-</td>
+911:            </tr>
+912:            <tr className="border-b border-gray-300">
+913:              <td className="border-r border-gray-300 bg-gray-100"></td>
+914:              <td className="border-r border-gray-300 px-3 py-1.5 font-bold">R-angle</td>
+915:              <td className="border-r border-gray-300 px-3 py-1.5 font-bold">R角</td>
+916:              <td className="border-r border-gray-300 px-3 py-1.5">0.000~1.000</td>
+917:              <td className="px-3 py-1.5 font-bold">mm</td>
+918:            </tr>
+919:            <tr className="border-b border-gray-300">
+920:              <td className="border-r border-gray-300 bg-gray-100"></td>
+921:              <td className="border-r border-gray-300 px-3 py-1.5 font-bold">Conductor thickness</td>
+922:              <td className="border-r border-gray-300 px-3 py-1.5 font-bold">导体厚度</td>
+923:              <td className="border-r border-gray-300 px-3 py-1.5">0.000~1.000</td>
+924:              <td className="px-3 py-1.5 font-bold">mm</td>
+925:            </tr>
+926:            <tr className="border-b border-gray-300">
+927:              <td className="border-r border-gray-300 bg-gray-100"></td>
+928:              <td className="border-r border-gray-300 px-3 py-1.5 font-bold">Conductor width</td>
+929:              <td className="border-r border-gray-300 px-3 py-1.5 font-bold">导体宽度</td>
+930:              <td className="border-r border-gray-300 px-3 py-1.5">0.000~1.000</td>
+931:              <td className="px-3 py-1.5 font-bold">mm</td>
+932:            </tr>
+933:            <tr className="border-b border-gray-300">
+934:              <td className="border-r border-gray-300 bg-gray-100"></td>
+935:              <td className="border-r border-gray-300 px-3 py-1.5 font-bold">Insulation thickness</td>
+936:              <td className="border-r border-gray-300 px-3 py-1.5 font-bold">绝缘厚度</td>
+937:              <td className="border-r border-gray-300 px-3 py-1.5">0.000~1.000</td>
+938:              <td className="px-3 py-1.5 font-bold">mm</td>
+939:            </tr>
+940:            <tr className="border-b border-gray-300">
+941:              <td className="border-r border-gray-300 bg-gray-100"></td>
+942:              <td className="border-r border-gray-300 px-3 py-1.5 font-bold">Adherence</td>
+943:              <td className="border-r border-gray-300 px-3 py-1.5 font-bold">附着性（15%切割拉伸）</td>
+944:              <td className="border-r border-gray-300 px-3 py-1.5">8.00</td>
+945:              <td className="px-3 py-1.5 font-bold">mm</td>
+946:            </tr>
+947:            <tr className="border-b border-gray-300">
+948:              <td className="border-r border-gray-300 bg-gray-100"></td>
+949:              <td className="border-r border-gray-300 px-3 py-1.5 font-bold">Breakdown voltage</td>
+950:              <td className="border-r border-gray-300 px-3 py-1.5 font-bold">击穿电压（常温，Φ25mm）</td>
+951:              <td className="border-r border-gray-300 px-3 py-1.5">1</td>
+952:              <td className="px-3 py-1.5 font-bold">V</td>
+953:            </tr>
+954:            <tr className="border-b border-gray-400">
+955:              <td className="border-r border-gray-300 bg-gray-100"></td>
+956:              <td className="border-r border-gray-300 px-3 py-1.5 font-bold">Solubility</td>
+957:              <td className="border-r border-gray-300 px-3 py-1.5 font-bold">耐溶剂（标准溶剂，1H）</td>
+958:              <td className="border-r border-gray-300 px-3 py-1.5">不刮破</td>
+959:              <td className="px-3 py-1.5">-</td>
+960:            </tr>
+961:            <tr className="bg-gray-400 min-h-[40px] h-10 border-t border-gray-500">
+962:              <td colSpan={5}></td>
+963:            </tr>
+964:          </tbody>
+965:        </table>
+966:      </div>
+967:    </div>
+968:  );
+969:};
+970:
+971:const HandoverMaterialLoadView = ({ task, onBack, onComplete }: { task: Task, onBack: () => void, onComplete: () => void }) => {
+972:  return (
+973:    <div className="flex flex-col h-full bg-[#f3f4f6] font-sans">
+974:      <div className="bg-[#1e3b5f] flex justify-between items-center px-4 py-2 border-b border-[#1e3b5f] shrink-0 text-white shadow-sm">
+975:        <span className="text-[17px] font-bold tracking-widest">接班上料</span>
+976:        <button onClick={onBack} className="text-white hover:text-gray-200 focus:outline-none bg-blue-400 p-0.5 rounded-full shadow-inner inline-flex items-center justify-center border border-white">
+977:          <XCircle size={22} className="text-white" />
+978:        </button>
+979:      </div>
+980:
+981:      <div className="flex-1 flex flex-col bg-white border border-gray-400 m-2 shadow-sm overflow-hidden">
+982:        {/* Dropdown area */}
+983:        <div className="p-3 flex flex-row items-center shrink-0">
+984:          <span className="text-[14px] font-bold mr-2 text-gray-800">请选择派工单：</span>
+985:          {/* Dropdown look-alike matching first image */}
+986:          <div className="relative inline-flex">
+987:            <select className="appearance-none border border-gray-400 bg-gradient-to-b from-gray-100 to-gray-200 px-3 py-1 pr-8 text-[14px] shadow-sm select-auto outline-none w-52 focus:border-blue-500 rounded-sm font-bold text-gray-800 cursor-pointer">
+988:              <option>{task.id.replace('PG', 'PGD')}</option>
+989:            </select>
+990:            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 bg-gradient-to-b from-gray-200 to-gray-300 border-l border-gray-400 rounded-r-sm">
+991:              <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+992:            </div>
+993:          </div>
+994:        </div>
+995:
+996:        {/* Table area */}
+997:        <div className="flex-1 overflow-auto border-t-2 border-gray-800">
+998:          <table className="w-full text-center text-[13px] border-collapse relative">
+999:            <thead className="bg-[#f0f0f0] sticky top-0 z-10 hidden sm:table-header-group">
+1000:              <tr className="border-b-2 border-gray-800">
+1001:                <th className="py-2.5 px-2 font-black text-black tracking-wide">物料条码</th>
+1002:                <th className="py-2.5 px-2 font-black text-black tracking-wide">批号</th>
+1003:                <th className="py-2.5 px-2 font-black text-black tracking-wide">物料编号</th>
+1004:                <th className="py-2.5 px-2 font-black text-black tracking-wide">物料名称</th>
+1005:                <th className="py-2.5 px-2 font-black text-black tracking-wide">申请数量</th>
+1006:                <th className="py-2.5 px-2 font-black text-black tracking-wide">使用数量</th>
+1007:              </tr>
+1008:            </thead>
+1009:            <tbody>
+1010:              <tr className="border-b border-gray-200 hover:bg-blue-50 bg-white">
+1011:                <td className="py-4 px-2 font-medium">00825061019474</td>
+1012:                <td className="py-4 px-2">20250610</td>
+1013:                <td className="py-4 px-2">01010200090</td>
+1014:                <td className="py-4 px-2 font-medium">圆丝</td>
+1015:                <td className="py-4 px-2">460.951</td>
+1016:                <td className="py-4 px-2">0.000</td>
+1017:              </tr>
+1018:              <tr className="border-b border-gray-200 hover:bg-blue-50 bg-white">
+1019:                <td className="py-4 px-2 font-medium">B@20260403@0002</td>
+1020:                <td className="py-4 px-2">260403</td>
+1021:                <td className="py-4 px-2">01020100001</td>
+1022:                <td className="py-4 px-2 font-medium">焊锡条60A</td>
+1023:                <td className="py-4 px-2">7.186</td>
+1024:                <td className="py-4 px-2">0.000</td>
+1025:              </tr>
+1026:              <tr className="border-b border-gray-200 hover:bg-blue-50 bg-white">
+1027:                <td className="py-4 px-2 font-medium">B@20260403@0003</td>
+1028:                <td className="py-4 px-2">260403</td>
+1029:                <td className="py-4 px-2">01020100001</td>
+1030:                <td className="py-4 px-2 font-medium">焊锡条60A</td>
+1031:                <td className="py-4 px-2">10.000</td>
+1032:                <td className="py-4 px-2">0.000</td>
+1033:              </tr>
+1034:              <tr className="border-b border-gray-200 hover:bg-blue-50 bg-white">
+1035:                <td className="py-4 px-2 font-medium">B@20260403@0004</td>
+1036:                <td className="py-4 px-2">260403</td>
+1037:                <td className="py-4 px-2">01020100001</td>
+1038:                <td className="py-4 px-2 font-medium">焊锡条60A</td>
+1039:                <td className="py-4 px-2">10.000</td>
+1040:                <td className="py-4 px-2">0.000</td>
+1041:              </tr>
+1042:              <tr className="border-b border-gray-200 hover:bg-blue-50 bg-white">
+1043:                <td className="py-4 px-2 font-medium">B@20260403@0005</td>
+1044:                <td className="py-4 px-2">260403</td>
+1045:                <td className="py-4 px-2">01020100001</td>
+1046:                <td className="py-4 px-2 font-medium">焊锡条60A</td>
+1047:                <td className="py-4 px-2">10.000</td>
+1048:                <td className="py-4 px-2">0.000</td>
+1049:              </tr>
+1050:              <tr className="border-b border-gray-200 hover:bg-blue-50 bg-white">
+1051:                <td className="py-4 px-2 font-medium">B@20260403@0006</td>
+1052:                <td className="py-4 px-2">260403</td>
+1053:                <td className="py-4 px-2">01020100001</td>
+1054:                <td className="py-4 px-2 font-medium">焊锡条60A</td>
+1055:                <td className="py-4 px-2">10.000</td>
+1056:                <td className="py-4 px-2">0.000</td>
+1057:              </tr>
+1058:            </tbody>
+1059:          </table>
+1060:          
+1061:          {/* Mock scrollbar effect to match image 1's right aligned thick scroll bar if needed, 
+1062:              but standard scrollbar is fine since we are in modern web. */}
+1063:        </div>
+1064:        
+1065:        {/* Footer */}
+1066:        <div className="flex justify-center p-4 shadow-[0_-2px_5px_rgba(0,0,0,0.05)] shrink-0 bg-[#f8f9fa] border-t border-gray-300">
+1067:          <button onClick={onComplete} className="bg-[#0b78d0] hover:bg-[#0962ab] text-white font-bold py-2 px-10 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0b78d0] tracking-widest rounded-sm text-[15px]">确认</button>
+1068:        </div>
+1069:      </div>
+1070:    </div>
+1071:  );
+1072:};
+1073:
+1074:const MaterialSubstituteView = ({ task, onBack }: { task: Task, onBack: () => void }) => {
+1075:  const [substitutes, setSubstitutes] = useState([{ id: 1 }]);
+1076:
+1077:  return (
+1078:    <div className="flex flex-col h-full bg-[#f3f4f6] font-sans">
+1079:      <div className="flex-1 flex flex-col bg-white border m-2 shadow-sm relative no-scrollbar overflow-x-hidden overflow-y-auto">
+1080:        
+1081:        {/* Top Header */}
+1082:        <div className="bg-[#1e3b5f] flex justify-between items-center px-4 py-3 border-b border-[#1e3b5f] shrink-0">
+1083:          <div className="flex items-center text-white space-x-2">
+1084:            <ClipboardList size={22} />
+1085:            <span className="font-bold text-lg tracking-widest">替代料申请</span>
+1086:          </div>
+1087:          <button onClick={onBack} className="bg-white hover:bg-gray-100 text-gray-800 text-sm font-bold py-1.5 px-6 rounded shadow border border-gray-300">
+1088:            后退
+1089:          </button>
+1090:        </div>
+1091:
+1092:        {/* Content Area */}
+1093:        <div className="flex flex-1 overflow-hidden">
+1094:          {/* Main Form */}
+1095:          <div className="flex-1 flex flex-col overflow-y-auto p-6">
+1096:
+1097:            <div className="border border-gray-300 mb-6 flex flex-col bg-gray-50">
+1098:               <div className="bg-gray-200 px-4 py-2 font-bold text-gray-800 border-b border-gray-300 text-[15px]">基本信息</div>
+1099:               <div className="p-4 grid grid-cols-2 md:grid-cols-3 gap-6">
+1100:                 <div className="flex items-center space-x-3">
+1101:                   <span className="text-gray-700 font-bold text-sm w-20 text-right">单据编号:</span>
+1102:                   <input type="text" value="自动生成" disabled className="flex-1 border border-gray-300 bg-gray-100 px-3 py-2 text-gray-500 font-bold focus:outline-none" />
+1103:                 </div>
+1104:                 <div className="flex items-center space-x-3">
+1105:                   <span className="text-gray-700 font-bold text-sm w-20 text-right"><span className="text-red-500 mr-1">*</span>派工单号:</span>
+1106:                   <input type="text" value={task.id} readOnly className="flex-1 border border-[#1976d2] bg-white px-3 py-2 text-gray-800 font-bold focus:outline-none focus:ring-1 focus:ring-[#1976d2]" />
+1107:                 </div>
+1108:                 <div className="flex items-center space-x-3">
+1109:                   <span className="text-gray-700 font-bold text-sm w-20 text-right">单据状态:</span>
+1110:                   <input type="text" value="新建 (created)" disabled className="flex-1 border border-gray-300 bg-gray-100 px-3 py-2 text-gray-500 font-bold focus:outline-none" />
+1111:                 </div>
+1112:                 <div className="flex items-center space-x-3">
+1113:                   <span className="text-gray-700 font-bold text-sm w-20 text-right">申请部门:</span>
+1114:                   <input type="text" value="制造一部" disabled className="flex-1 border border-gray-300 bg-gray-100 px-3 py-2 text-gray-500 font-bold focus:outline-none" />
+1115:                 </div>
+1116:                 <div className="flex items-center space-x-3">
+1117:                   <span className="text-gray-700 font-bold text-sm w-20 text-right">申请人:</span>
+1118:                   <input type="text" value="当前用户" disabled className="flex-1 border border-gray-300 bg-gray-100 px-3 py-2 text-gray-500 font-bold focus:outline-none" />
+1119:                 </div>
+1120:                 <div className="flex items-center space-x-3">
+1121:                   <span className="text-gray-700 font-bold text-sm w-20 text-right">申请日期:</span>
+1122:                   <input type="date" defaultValue="2026-05-15" className="flex-1 border border-gray-300 bg-white px-3 py-2 text-gray-800 font-bold focus:outline-none focus:border-[#1976d2]" />
+1123:                 </div>
+1124:               </div>
+1125:               
+1126:               <div className="px-4 pb-4">
+1127:                 <div className="flex items-center space-x-3 mb-4">
+1128:                   <span className="text-gray-700 font-bold text-sm w-20 text-right">备注:</span>
+1129:                   <input type="text" className="flex-1 border border-gray-300 bg-white px-3 py-2 text-gray-800 focus:outline-none focus:border-[#1976d2]" />
+1130:                 </div>
+1131:                 <div className="flex items-start space-x-3">
+1132:                   <span className="text-gray-700 font-bold text-sm w-20 text-right mt-2"><span className="text-red-500 mr-1">*</span>替代原因:</span>
+1133:                   <textarea rows={2} placeholder="请说明替代原因（此原因内容将作为发起OA的说明）" className="flex-1 border border-[#1976d2] bg-white px-3 py-2 text-gray-800 focus:outline-none focus:ring-1 focus:ring-[#1976d2] resize-none"></textarea>
+1134:                 </div>
+1135:               </div>
+1136:            </div>
+1137:
+1138:            <div className="border border-gray-300 flex-1 flex flex-col min-h-[250px] bg-white">
+1139:               <div className="bg-gray-200 px-4 py-2 font-bold text-gray-800 border-b border-gray-300 text-[15px] flex justify-between items-center">
+1140:                 <span>替代明细</span>
+1141:                 <div className="flex space-x-2">
+1142:                   <button onClick={() => setSubstitutes([...substitutes, { id: Date.now() }])} className="bg-white hover:bg-gray-50 text-[#1976d2] border border-gray-300 px-3 py-1 rounded text-sm shadow-sm font-bold flex items-center">
+1143:                     <Plus size={16} className="mr-1"/> 新增行
+1144:                   </button>
+1145:                   <button onClick={() => substitutes.length > 1 && setSubstitutes(substitutes.slice(0, -1))} className="bg-white hover:bg-gray-50 text-red-600 border border-gray-300 px-3 py-1 rounded text-sm shadow-sm font-bold flex items-center">
+1146:                     <Trash2 size={16} className="mr-1"/> 删除行
+1147:                   </button>
+1148:                 </div>
+1149:               </div>
+1150:               <div className="flex-1 overflow-auto">
+1151:                 <table className="w-full text-base border-collapse text-center">
+1152:                   <thead className="bg-[#f0f0f0] border-b border-gray-300 sticky top-0">
+1153:                     <tr>
+1154:                       <th className="p-2 border-r border-gray-300 w-12"><input type="checkbox" className="w-4 h-4 rounded border-gray-300" /></th>
+1155:                       <th className="p-2 border-r border-gray-300 font-bold text-gray-700"><span className="text-red-500 mr-1">*</span>被替代料编码</th>
+1156:                       <th className="p-2 border-r border-gray-300 font-bold text-gray-700">被替代料名称</th>
+1157:                       <th className="p-2 border-r border-gray-300 font-bold text-gray-700"><span className="text-red-500 mr-1">*</span>替代料编码</th>
+1158:                       <th className="p-2 border-r border-gray-300 font-bold text-gray-700">替代料名称</th>
+1159:                       <th className="p-2 border-r border-gray-300 font-bold text-[#1976d2] w-32"><span className="text-red-500 mr-1">*</span>替代数量</th>
+1160:                       <th className="p-2 border-gray-300 font-bold text-gray-700">备注</th>
+1161:                     </tr>
+1162:                   </thead>
+1163:                   <tbody>
+1164:                      {substitutes.map((sub, idx) => (
+1165:                        <tr key={sub.id} className="border-b border-gray-200 hover:bg-blue-50">
+1166:                           <td className="p-2 border-r border-gray-200 text-center"><input type="checkbox" className="w-4 h-4 rounded border-gray-300" /></td>
+1167:                           <td className="p-0 border-r border-gray-200 relative">
+1168:                             <input type="text" placeholder="扫码或输入" className="w-full py-2.5 px-2 bg-transparent focus:outline-none focus:bg-white focus:ring-1 focus:ring-blue-500 text-center font-bold text-gray-800" />
+1169:                           </td>
+1170:                           <td className="p-0 border-r border-gray-200 bg-gray-50">
+1171:                             <input type="text" disabled className="w-full py-2.5 px-2 bg-transparent focus:outline-none text-center text-gray-500" />
+1172:                           </td>
+1173:                           <td className="p-0 border-r border-gray-200 relative">
+1174:                             <input type="text" placeholder="扫码或输入" className="w-full py-2.5 px-2 bg-transparent focus:outline-none focus:bg-white focus:ring-1 focus:ring-blue-500 text-center font-bold text-gray-800" />
+1175:                           </td>
+1176:                           <td className="p-0 border-r border-gray-200 bg-gray-50">
+1177:                             <input type="text" disabled className="w-full py-2.5 px-2 bg-transparent focus:outline-none text-center text-gray-500" />
+1178:                           </td>
+1179:                           <td className="p-0 border-r border-gray-200">
+1180:                             <input type="number" defaultValue="0" className="w-full py-2.5 px-2 bg-transparent focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#1976d2] text-center font-bold text-[#1976d2]" />
+1181:                           </td>
+1182:                           <td className="p-0 border-gray-200">
+1183:                             <input type="text" className="w-full py-2.5 px-2 bg-transparent focus:outline-none focus:bg-white focus:ring-1 focus:ring-blue-500 text-center" />
+1184:                           </td>
+1185:                        </tr>
+1186:                      ))}
+1187:                      {substitutes.length === 0 && (
+1188:                        <tr><td colSpan={7} className="text-gray-400 py-8 text-sm">暂无明细数据</td></tr>
+1189:                      )}
+1190:                   </tbody>
+1191:                 </table>
+1192:               </div>
+1193:            </div>
+1194:
+1195:          </div>
+1196:          
+1197:          {/* Right Sidebar for Actions */}
+1198:          <div className="w-[280px] bg-white border-l border-gray-300 flex flex-col p-6 shrink-0 shadow-[inset_1px_0_4px_rgba(0,0,0,0.05)]">
+1199:             <div className="font-bold text-gray-800 text-lg mb-6 tracking-widest border-b border-gray-300 pb-2">操作区</div>
+1200:             
+1201:             <button className="w-full py-4 mb-4 bg-white border-2 border-gray-400 text-gray-800 font-bold text-xl tracking-widest shadow-sm rounded hover:bg-gray-50">
+1202:               刷 新
+1203:             </button>
+1204:             
+1205:             <button className="w-full py-4 mb-4 bg-[#7eb6af] hover:bg-[#6fa59e] text-white font-bold text-xl tracking-widest shadow-sm rounded border border-[#6b9d97]">
+1206:               保 存
+1207:             </button>
+1208:             
+1209:             <button className="w-full py-4 mb-4 bg-[#1976d2] hover:bg-[#1565c0] text-white font-bold text-xl tracking-widest shadow-sm rounded border border-[#0d47a1]">
+1210:               发起 OA
+1211:             </button>
+1212:             
+1213:             <div className="flex-1"></div>
+1214:             
+1215:             <button onClick={onBack} className="w-full py-4 bg-gray-500 hover:bg-gray-600 border border-gray-600 text-white font-bold text-xl tracking-widest shadow-sm rounded">
+1216:               后 退
+1217:             </button>
+1218:          </div>
+1219:        </div>
+1220:
+1221:      </div>
+1222:    </div>
+1223:  );
+1224:};
+1225:
+1226:const MaterialLoadView = ({ task, onBack, onComplete, onNavigate, type = 'startup' }: { task: Task, onBack: () => void, onComplete: () => void, onNavigate?: (view: string) => void, type?: 'startup' | 'handover' }) => {
+1227:  const [scanInput, setScanInput] = useState('');
+1228:  const [errorMsg, setErrorMsg] = useState('');
+1229:  const [successMsg, setSuccessMsg] = useState('');
+1230:  const [boms, setBoms] = useState(task.bom || []);
+1231:  const [showSubstitutePrompt, setShowSubstitutePrompt] = useState(false);
+1232:
+1233:  const title = type === 'startup' ? '开机上料' : '接班上料';
+1234:
+1235:  const handleScan = (e: React.FormEvent) => {
+1236:    e.preventDefault();
+1237:    setErrorMsg('');
+1238:    setSuccessMsg('');
+1239:    setShowSubstitutePrompt(false);
+1240:    
+1241:    if (!scanInput.trim()) return;
+1242:
+1243:    // Simulate looking up material code from barcode
+1244:    // For demo, we just treat the scan input as the material code directly
+1245:    const code = scanInput.trim();
+1246:    
+1247:    const bomIndex = boms.findIndex(b => b.materialCode === code || b.barcode === code);
+1248:    
+1249:    if (bomIndex === -1) {
+1250:      setErrorMsg(`扫描的物料条码 [${code}] 不符合当前${type === 'startup' ? '开工任务的BOM' : '接班剩余物料'}清单，请检查！`);
+1251:      setShowSubstitutePrompt(true);
+1252:      setScanInput('');
+1253:      return;
+1254:    }
+1255:    
+1256:    const matchedBom = boms[bomIndex];
+1257:    // Define maximum needed amount
+1258:    const maxNeeded = type === 'startup' ? matchedBom.requiredQty : Math.max(matchedBom.requiredQty - (matchedBom.loadedQty || 0), 5);
+1259:    const currentLoaded = matchedBom.loadedQty || 0;
+1260:    
+1261:    if (currentLoaded >= maxNeeded && type === 'startup') {
+1262:      setErrorMsg(`该物料 [${matchedBom.materialName}] 的需求数量已满。`);
+1263:      setScanInput('');
+1264:      return;
+1265:    }
+1266:
+1267:    // Success, increment loaded
+1268:    const newBoms = [...boms];
+1269:    const newLoadedQty = currentLoaded + 10;
+1270:    
+1271:    newBoms[bomIndex] = { ...matchedBom, loadedQty: newLoadedQty };
+1272:    setBoms(newBoms);
+1273:    setSuccessMsg(`成功扫码匹配 [${matchedBom.materialName}] +10`);
+1274:    setScanInput('');
+1275:  };
+1276:
+1277:  return (
+1278:    <div className="flex flex-col h-full bg-[#f3f4f6] font-sans">
+1279:      <div className="flex-1 flex flex-col bg-white border m-2 shadow-sm overflow-y-auto">
+1280:        <div className="bg-[#1e3b5f] flex justify-between items-center px-4 py-3 border-b border-[#1e3b5f] shrink-0">
+1281:          <div className="flex items-center text-white">
+1282:            <ScanLine className="mr-2" size={24} />
+1283:            <span className="text-xl font-bold tracking-widest">{title}</span>
+1284:          </div>
+1285:          <button onClick={onBack} className="bg-white/10 hover:bg-white/20 px-6 py-2 border border-white/30 rounded text-white shadow-sm font-bold text-lg transition-colors">
+1286:            返回任务区
+1287:          </button>
+1288:        </div>
+1289:
+1290:        <div className="p-6">
+1291:          <div className="bg-[#eef2f6] border border-[#1976d2]/20 p-4 rounded-md mb-6">
+1292:        <h3 className="font-bold text-gray-800 text-lg mb-2">当前任务信息</h3>
+1293:        <div className="grid grid-cols-3 gap-4 text-sm">
+1294:          <div><span className="text-gray-500">派工单号:</span> <span className="font-medium text-gray-900">{task.id}</span></div>
+1295:          <div><span className="text-gray-500">成品质控/物料:</span> <span className="font-medium text-gray-900">{task.materialName} ({task.materialCode})</span></div>
+1296:          <div><span className="text-gray-500">工序:</span> <span className="font-medium text-gray-900">{task.process}</span></div>
+1297:        </div>
+1298:      </div>
+1299:
+1300:      <div className="flex flex-col md:flex-row gap-6 mb-8">
+1301:        <div className="flex-1">
+1302:          <h3 className="font-bold text-gray-800 text-lg mb-3 flex items-center">
+1303:            <ListChecks className="mr-2 text-gray-600" size={20} />
+1304:            {type === 'startup' ? '上料列表' : '上道派工单剩余物料'}
+1305:          </h3>
+1306:          
+1307:          {boms.length === 0 ? (
+1308:            <div className="text-gray-500 italic p-4 bg-gray-50 rounded border border-gray-200">未找到此任务的BOM清单数据</div>
+1309:          ) : (
+1310:            <table className="w-full text-sm border-collapse border border-gray-300">
+1311:              <thead className="bg-gray-100">
+1312:                <tr>
+1313:                  <th className="border border-gray-300 px-3 py-2 text-left">条码</th>
+1314:                  <th className="border border-gray-300 px-3 py-2 text-left">物料编码</th>
+1315:                  <th className="border border-gray-300 px-3 py-2 text-left">物料名称</th>
+1316:                  {type === 'startup' ? (
+1317:                    <>
+1318:                      <th className="border border-gray-300 px-3 py-2 text-left">规格</th>
+1319:                      <th className="border border-gray-300 px-3 py-2 text-right">需求量</th>
+1320:                      <th className="border border-gray-300 px-3 py-2 text-right">已上料</th>
+1321:                      <th className="border border-gray-300 px-3 py-2 text-center">状态</th>
+1322:                    </>
+1323:                  ) : (
+1324:                    <>
+1325:                      <th className="border border-gray-300 px-3 py-2 text-right">数量</th>
+1326:                      <th className="border border-gray-300 px-3 py-2 text-left">单位</th>
+1327:                    </>
+1328:                  )}
+1329:                </tr>
+1330:              </thead>
+1331:              <tbody>
+1332:                {boms.map(bom => {
+1333:                  const required = type === 'startup' ? bom.requiredQty : Math.max(bom.requiredQty - bom.loadedQty, 5);
+1334:                  const loaded = type === 'startup' ? bom.loadedQty : required; // auto-fill for handover
+1335:                  
+1336:                  return (
+1337:                  <tr key={bom.id} className={loaded >= required ? 'bg-green-50' : ''}>
+1338:                    <td className="border border-gray-300 px-3 py-2 font-mono text-xs">{bom.barcode || `BC-${bom.materialCode}`}</td>
+1339:                    <td className="border border-gray-300 px-3 py-2 font-mono text-xs">{bom.materialCode}</td>
+1340:                    <td className="border border-gray-300 px-3 py-2 font-medium">{bom.materialName}</td>
+1341:                    {type === 'startup' ? (
+1342:                      <>
+1343:                        <td className="border border-gray-300 px-3 py-2">{bom.spec}</td>
+1344:                        <td className="border border-gray-300 px-3 py-2 text-right">{required} {bom.unit}</td>
+1345:                        <td className="border border-gray-300 px-3 py-2 text-right font-bold text-blue-600">
+1346:                          {loaded} {bom.unit}
+1347:                        </td>
+1348:                        <td className="border border-gray-300 px-3 py-2 text-center">
+1349:                          {loaded >= required ? (
+1350:                            <span className="text-green-600 font-bold text-xs bg-green-100 px-2 py-0.5 rounded">满足</span>
+1351:                          ) : (
+1352:                            <span className="text-orange-500 font-bold text-xs bg-orange-100 px-2 py-0.5 rounded">缺料</span>
+1353:                          )}
+1354:                        </td>
+1355:                      </>
+1356:                    ) : (
+1357:                      <>
+1358:                        <td className="border border-gray-300 px-3 py-2 font-mono text-xs text-gray-500">
+1359:                          TX{Math.floor(Math.random() * 10000000).toString().padStart(8, '0')}
+1360:                        </td>
+1361:                        <td className="border border-gray-300 px-3 py-2 text-right font-bold text-blue-600">{required}</td>
+1362:                        <td className="border border-gray-300 px-3 py-2 text-left">{bom.unit}</td>
+1363:                      </>
+1364:                    )}
+1365:                  </tr>
+1366:                  );
+1367:                })}
+1368:              </tbody>
+1369:            </table>
+1370:          )}
+1371:        </div>
+1372:
+1373:        {type === 'startup' && (
+1374:          <div className="md:w-80 flex flex-col">
+1375:            <div className="bg-gray-50 border border-gray-300 p-5 flex-1 shadow-inner relative">
+1376:              <h3 className="font-bold text-gray-800 text-base mb-4 flex items-center">
+1377:                <Barcode className="mr-2" size={20} />
+1378:                扫码上料
+1379:              </h3>
+1380:              
+1381:              <form onSubmit={handleScan} className="flex flex-col space-y-4">
+1382:                <div>
+1383:                  <label className="block text-xs font-medium text-gray-600 mb-1">请使用扫码枪扫描物料条码</label>
+1384:                  <input 
+1385:                    type="text" 
+1386:                    value={scanInput}
+1387:                    onChange={(e) => setScanInput(e.target.value)}
+1388:                    placeholder="扫描或输入物料编码..."
+1389:                    className="w-full border-2 border-blue-400 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg shadow-sm font-mono"
+1390:                    autoFocus
+1391:                  />
+1392:                </div>
+1393:                <button type="submit" className="bg-[#1976d2] hover:bg-[#1565c0] text-white font-bold py-3 rounded shadow-md w-full tracking-wider transition-colors">
+1394:                  确认投料
+1395:                </button>
+1396:              </form>
+1397:
+1398:              <div className="mt-6">
+1399:                {errorMsg && (
+1400:                  <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded">
+1401:                    <p className="font-bold flex items-center">
+1402:                       <AlertTriangle className="mr-2" size={20} />
+1403:                       错误提示
+1404:                    </p>
+1405:                    <p className="text-sm mt-1">{errorMsg}</p>
+1406:                    {showSubstitutePrompt && onNavigate && (
+1407:                      <div className="mt-4 border-t border-red-200 pt-3 flex flex-col sm:flex-row sm:items-center justify-between">
+1408:                         <span className="text-sm font-medium mb-2 sm:mb-0">是否要做替代料申请？</span>
+1409:                         <button 
+1410:                           onClick={() => onNavigate('material-substitute')}
+1411:                           className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded shadow text-sm font-bold w-fit"
+1412:                         >
+1413:                           去申请替代料
+1414:                         </button>
+1415:                      </div>
+1416:                    )}
+1417:                  </div>
+1418:                )}
+1419:                {successMsg && (
+1420:                  <div className="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded">
+1421:                    <p className="font-bold flex items-center">
+1422:                       <CheckCircle2 className="mr-2" size={20} />
+1423:                       投料成功
+1424:                    </p>
+1425:                    <p className="text-sm mt-1">{successMsg}</p>
+1426:                  </div>
+1427:                )}
+1428:                
+1429:                {!errorMsg && !successMsg && (
+1430:                  <div className="text-gray-400 text-sm italic mt-4">
+1431:                    提示: 可以输入 {boms?.[0]?.barcode || boms?.[0]?.materialCode || 'MA1001'} (或其它对应条码) 模拟扫描报错并体验替代料申请
+1432:                  </div>
+1433:                )}
+1434:              </div>
+1435:            </div>
+1436:          </div>
+1437:        )}
+1438:      </div>
+1439:
+1440:      <div className="border-t border-gray-300 p-4 bg-[#f3f4f6] flex justify-end space-x-4 shrink-0">
+1441:        {type === 'startup' && (
+1442:          <button className="bg-white hover:bg-gray-50 px-8 py-3 rounded font-bold text-gray-700 border border-gray-300">清空已扫</button>
+1443:        )}
+1444:         <button 
+1445:           className="bg-[#1976d2] hover:bg-[#1565c0] px-10 py-3 rounded font-bold text-white shadow"
+1446:           onClick={() => {
+1447:             alert(`${title}确认成功！`);
+1448:             onComplete();
+1449:           }}
+1450:         >
+1451:           完成{title}
+1452:         </button>
+1453:      </div>
+1454:      </div>
+1455:    </div>
+1456:    </div>
+1457:  );
+1458:};
+1459:
+1460:const ProductionReportView = ({ task, onBack }: { task: Task, onBack: () => void }) => {
+1461:  const [activeTab, setActiveTab] = useState<'workers' | 'self-inspect' | 'report'>('report');
+1462:  
+1463:  const [reportLength, setReportLength] = useState<number | ''>('');
+1464:  const [meterWeight, setMeterWeight] = useState<number | ''>(0.5); // Default meter weight for demonstration
+1465:  
+1466:  const calculatedWeight = (typeof reportLength === 'number' && typeof meterWeight === 'number') ? (reportLength * meterWeight).toFixed(2) : '';
+1467:
+1468:  return (
+1469:    <div className="flex flex-col h-full bg-[#f3f4f6] font-sans">
+1470:      <div className="bg-[#1e3b5f] text-white flex items-center px-4 py-3 shrink-0">
+1471:        <button onClick={onBack} className="p-1 hover:bg-white/10 rounded mr-2">
+1472:          <ChevronLeft size={24} />
+1473:        </button>
+1474:        <span className="text-lg font-bold">报工</span>
+1475:      </div>
+1476:
+1477:      <div className="flex-1 overflow-y-auto w-full max-w-6xl mx-auto flex flex-col p-4">
+1478:        {/* Header Tabs */}
+1479:        <div className="flex items-end justify-start border-b border-[#1976d2] mt-4 z-10 relative left-10">
+1480:          <button 
+1481:            onClick={() => setActiveTab('workers')}
+1482:            className={`px-8 py-3 font-medium text-[15px] border-t border-l border-r rounded-t bg-white ${activeTab === 'workers' ? 'bg-[#1976d2] text-white border-[#1976d2]' : 'text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+1483:          >
+1484:            作业人员
+1485:          </button>
+1486:          <button 
+1487:            onClick={() => setActiveTab('self-inspect')}
+1488:            className={`px-8 py-3 font-medium text-[15px] border-t border-r rounded-t bg-white ${activeTab === 'self-inspect' ? 'bg-[#1976d2] text-white border-[#1976d2]' : 'text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+1489:          >
+1490:            自检信息
+1491:          </button>
+1492:          <button 
+1493:            onClick={() => setActiveTab('report')}
+1494:            className={`px-8 py-3 font-medium text-[15px] border-t border-r rounded-t bg-[#1976d2] text-white ${activeTab === 'report' ? 'bg-[#1976d2] text-white border-[#1976d2]' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+1495:          >
+1496:            生产汇报
+1497:          </button>
+1498:        </div>
+1499:
+1500:        <div className="bg-white p-8 border border-t-0 shadow-sm pt-10">
+1501:          {activeTab === 'report' && (
+1502:            <div className="grid grid-cols-2 gap-x-12 gap-y-6">
+1503:              {/* Row 1 */}
+1504:              <div className="flex items-center">
+1505:                <label className="w-28 text-right mr-4 text-gray-700 font-medium text-sm">批次号</label>
+1506:                <div className="flex-[2] relative">
+1507:                  <input type="text" defaultValue="PG20260400036" className="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50 focus:outline-none focus:border-[#1976d2] focus:bg-white" />
+1508:                </div>
+1509:              </div>
+1510:              <div className="flex items-center">
+1511:                <label className="w-28 text-right mr-4 text-gray-700 font-medium text-sm">派工单号</label>
+1512:                <div className="flex-[2]">
+1513:                  <input type="text" defaultValue="PG20260400036" className="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50 focus:outline-none focus:border-[#1976d2] focus:bg-white" />
+1514:                </div>
+1515:              </div>
+1516:              
+1517:              {/* Row 2 */}
+1518:              <div className="flex items-center">
+1519:                <label className="w-28 text-right mr-4 text-gray-700 font-medium text-sm">物料编号</label>
+1520:                <div className="flex-[2]">
+1521:                  <input type="text" defaultValue="MA00043" className="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50 focus:outline-none focus:border-[#1976d2] focus:bg-white" />
+1522:                </div>
+1523:              </div>
+1524:              <div className="flex items-center">
+1525:                <label className="w-28 text-right mr-4 text-gray-700 font-medium text-sm">物料名称</label>
+1526:                <div className="flex-[2]">
+1527:                  <input type="text" defaultValue="test-bcpA-1" className="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50 focus:outline-none focus:border-[#1976d2] focus:bg-white" />
+1528:                </div>
+1529:              </div>
+1530:
+1531:              {/* Row 3 */}
+1532:              <div className="flex items-center">
+1533:                <label className="w-28 text-right mr-4 text-gray-700 font-medium text-sm">规格</label>
+1534:                <div className="flex-[2]">
+1535:                  <input type="text" defaultValue="GG5" className="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50 focus:outline-none focus:border-[#1976d2] focus:bg-white" />
+1536:                </div>
+1537:              </div>
+1538:              <div className="flex items-center">
+1539:                <label className="w-28 text-right mr-4 text-gray-700 font-medium text-sm">型号</label>
+1540:                <div className="flex-[2]">
+1541:                  <input type="text" defaultValue="XH5" className="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50 focus:outline-none focus:border-[#1976d2] focus:bg-white" />
+1542:                </div>
+1543:              </div>
+1544:
+1545:              {/* Row 4 */}
+1546:              <div className="flex items-center">
+1547:                <label className="w-28 text-right mr-4 text-gray-700 font-medium text-sm">计划数量</label>
+1548:                <div className="flex-[2]">
+1549:                  <input type="text" defaultValue="800" className="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50 focus:outline-none focus:border-[#1976d2] focus:bg-white" />
+1550:                </div>
+1551:              </div>
+1552:              <div className="flex items-center">
+1553:                <label className="w-28 text-right mr-4 text-gray-700 font-medium text-sm">派工数量</label>
+1554:                <div className="flex-[2]">
+1555:                  <input type="text" defaultValue="10" className="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50 focus:outline-none focus:border-[#1976d2] focus:bg-white" />
+1556:                </div>
+1557:              </div>
+1558:
+1559:              {/* Row 5 */}
+1560:              <div className="flex items-center">
+1561:                <label className="w-28 text-right mr-4 text-gray-700 font-medium text-sm">工序</label>
+1562:                <div className="flex-[2]">
+1563:                  <input type="text" defaultValue="2打包 (不质检, 派工)" className="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50 focus:outline-none focus:border-[#1976d2] focus:bg-white" />
+1564:                </div>
+1565:              </div>
+1566:              <div className="flex items-center">
+1567:                <label className="w-28 text-right mr-4 text-gray-700 font-medium text-sm">报工数量</label>
+1568:                <div className="flex-[2] relative">
+1569:                  <input type="text" defaultValue="10" className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-[#1976d2] focus:ring-1 focus:ring-[#1976d2] bg-white transition-shadow" />
+1570:                </div>
+1571:              </div>
+1572:
+1573:              {/* Row 6 */}
+1574:              <div className="flex items-center">
+1575:                <label className="w-28 text-right mr-4 text-gray-700 font-medium text-sm">不合格数量</label>
+1576:                <div className="flex-[2]">
+1577:                  <input type="text" placeholder="请输入不合格数量" className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-[#1976d2] focus:ring-1 focus:ring-[#1976d2] bg-white transition-shadow" />
+1578:                </div>
+1579:              </div>
+1580:              <div className="flex items-center">
+1581:                <label className="w-28 text-right mr-4 text-gray-700 font-medium text-sm">单位</label>
+1582:                <div className="flex-[2]">
+1583:                  <input type="text" defaultValue="个" className="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50 focus:outline-none focus:border-[#1976d2] focus:bg-white" />
+1584:                </div>
+1585:              </div>
+1586:
+1587:              {/* Row 7 */}
+1588:              <div className="flex items-center">
+1589:                <label className="w-28 text-right mr-4 text-gray-700 font-medium text-sm">不合格类型</label>
+1590:                <div className="flex-[2]">
+1591:                  <select className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-[#1976d2] focus:ring-1 focus:ring-[#1976d2] bg-white text-gray-500">
+1592:                    <option value="">请选择不合格类型</option>
+1593:                    <option value="1">表面划伤</option>
+1594:                    <option value="2">尺寸偏差</option>
+1595:                  </select>
+1596:                </div>
+1597:              </div>
+1598:              <div className="flex items-center hidden">
+1599:                {/* Empty slot for balance */}
+1600:              </div>
+1601:
+1602:              {/* Row 8 */}
+1603:              <div className="flex items-center">
+1604:                <label className="w-28 text-right mr-4 text-gray-700 font-medium text-sm">实际生产设备</label>
+1605:                <div className="flex-[2] relative">
+1606:                  <input type="text" defaultValue="测试机B" className="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50 focus:outline-none focus:border-[#1976d2] focus:bg-white" />
+1607:                </div>
+1608:              </div>
+1609:              <div className="flex items-center">
+1610:                <label className="w-28 text-right mr-4 text-[#1976d2] font-bold text-sm">盘具信息</label>
+1611:                <div className="flex-[2]">
+1612:                  <input type="text" placeholder="请输入/选择盘具编号" className="w-full border border-[#1976d2]/50 rounded px-3 py-2 focus:outline-none focus:border-[#1976d2] focus:ring-1 focus:ring-[#1976d2] bg-white transition-shadow" />
+1613:                </div>
+1614:              </div>
+1615:
+1616:              {/* Row 9 (New required fields) */}
+1617:              <div className="flex items-center">
+1618:                <label className="w-28 text-right mr-4 text-[#1976d2] font-bold text-sm">汇报长度(m)</label>
+1619:                <div className="flex-[2]">
+1620:                  <input 
+1621:                    type="number" 
+1622:                    value={reportLength} 
+1623:                    onChange={(e) => setReportLength(e.target.value ? Number(e.target.value) : '')}
+1624:                    placeholder="输入长度" 
+1625:                    className="w-full border border-[#1976d2]/50 rounded px-3 py-2 focus:outline-none focus:border-[#1976d2] focus:ring-1 focus:ring-[#1976d2] bg-white transition-shadow" 
+1626:                  />
+1627:                </div>
+1628:              </div>
+1629:              <div className="flex items-center">
+1630:                <label className="w-28 text-right mr-4 text-gray-700 font-medium text-sm">米重量(kg/m)</label>
+1631:                <div className="flex-[2]">
+1632:                  <input 
+1633:                    type="number" 
+1634:                    value={meterWeight} 
+1635:                    onChange={(e) => setMeterWeight(e.target.value ? Number(e.target.value) : '')}
+1636:                    className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-[#1976d2] focus:ring-1 focus:ring-[#1976d2] bg-white transition-shadow" 
+1637:                  />
+1638:                </div>
+1639:              </div>
+1640:
+1641:              {/* Row 10 */}
+1642:              <div className="flex items-center">
+1643:                <label className="w-28 text-right mr-4 text-gray-500 font-medium text-sm">计算重量(kg)</label>
+1644:                <div className="flex-[2]">
+1645:                  <input 
+1646:                    type="text" 
+1647:                    value={calculatedWeight} 
+1648:                    disabled
+1649:                    className="w-full border border-gray-200 rounded px-3 py-2 bg-gray-100 text-gray-600 font-bold" 
+1650:                  />
+1651:                </div>
+1652:              </div>
+1653:              <div className="flex items-center">
+1654:                <label className="w-28 text-right mr-4 text-red-600 font-bold text-sm">称重重量录入(kg)</label>
+1655:                <div className="flex-[2]">
+1656:                  <input 
+1657:                    type="number" 
+1658:                    placeholder="输入实际称重" 
+1659:                    className="w-full border border-red-300 rounded px-3 py-2 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 bg-red-50/30 transition-shadow font-bold text-red-700 placeholder:text-red-300" 
+1660:                  />
+1661:                </div>
+1662:              </div>
+1663:            </div>
+1664:          )}
+1665:          
+1666:          {/* Footer actions for this tab */}
+1667:          {activeTab === 'report' && (
+1668:            <div className="mt-12 flex justify-center border-t border-gray-100 pt-6">
+1669:              <button onClick={onBack} className="bg-[#1976d2] hover:bg-[#1565c0] text-white px-20 py-3 rounded text-lg shadow transition-colors tracking-widest font-bold">
+1670:                确认汇报
+1671:              </button>
+1672:            </div>
+1673:          )}
+1674:        </div>
+1675:      </div>
+1676:    </div>
+1677:  );
+1678:};
+1679:
+1680:const ProductHandoverView = ({ task, onBack, onNavigate }: { task: Task, onBack: () => void, onNavigate?: (view: string) => void }) => {
+1681:  const [qualifyStatus, setQualifyStatus] = useState<boolean>(true);
+1682:  const [isTaskCompleted, setIsTaskCompleted] = useState<boolean>(false);
+1683:
+1684:  return (
+1685:    <div className="flex flex-col h-full bg-[#f3f4f6] font-sans">
+1686:      <div className="flex-1 flex flex-col bg-white border m-2 shadow-sm relative no-scrollbar overflow-y-auto">
+1687:        {/* Top Header */}
+1688:        <div className="bg-[#1e3b5f] flex justify-between items-center px-4 py-3 border-b border-[#1e3b5f] shrink-0">
+1689:          <div className="flex items-center space-x-4 flex-1">
+1690:            <span className="font-bold text-white text-2xl tracking-widest ml-4">交班操作员工扫卡：</span>
+1691:            <input type="text" className="bg-white/10 text-white border border-white/30 px-2 py-1.5 text-xl flex-1 max-w-xl focus:outline-none" />
+1692:            <span className="text-white/60 text-sm mx-4">-</span>
+1693:          </div>
+1694:          <button onClick={onBack} className="bg-white/10 border border-white/30 px-6 py-2 rounded hover:bg-white/20 text-white font-bold shadow-sm text-lg">后退</button>
+1695:        </div>
+1696:
+1697:        {/* Content Area */}
+1698:        <div className="flex flex-1 overflow-hidden">
+1699:          {/* Left/Main table */}
+1700:          <div className="flex-1 border-r border-gray-300 flex flex-col overflow-y-auto relative">
+1701:            <table className="w-full text-base border-collapse">
+1702:              <thead className="bg-[#f0f0f0] border-b border-gray-300">
+1703:                <tr>
+1704:                  <th className="border-r border-gray-300 px-2 py-2 text-left font-bold w-40">项目</th>
+1705:                  <th className="border-r border-gray-300 px-2 py-2 text-left font-bold w-32">单位</th>
+1706:                  <th className="border-r border-gray-300 px-2 py-2 text-left font-bold w-32">判定方法</th>
+1707:                  <th className="border-r border-gray-300 px-2 py-2 text-left font-bold border-l">取值要求</th>
+1708:                  <th className="px-2 py-2 text-left font-bold w-48 border-l border-gray-300">检测值</th>
+1709:                </tr>
+1710:              </thead>
+1711:              <tbody>
+1712:                <tr className="border-b border-gray-200">
+1713:                  <td className="border-r border-gray-300 p-0 bg-[#0284c7] text-white">
+1714:                    <div className="flex items-center px-2 py-2">
+1715:                       <span className="text-xs mr-1">▶</span>
+1716:                       漆包外观
+1717:                    </div>
+1718:                  </td>
+1719:                  <td className="border-r border-gray-300 px-2 py-2 text-left">-</td>
+1720:                  <td className="border-r border-gray-300 px-2 py-2 text-left text-gray-600">定性</td>
+1721:                  <td className="border-r border-gray-300 px-2 py-2 text-left text-gray-600">漆膜应光滑、连续...</td>
+1722:                  <td className="p-0 border-l border-gray-300"><input type="text" className="w-full h-full border-none px-2 py-2 focus:outline-none focus:ring-1 focus:ring-blue-400" /></td>
+1723:                </tr>
+1724:              </tbody>
+1725:            </table>
+1726:
+1727:            {/* Bottom Form Info */}
+1728:            <div className="px-6 py-4 flex flex-col space-y-4">
+1729:              <div className="flex items-center space-x-6 text-[15px] font-bold text-gray-800">
+1730:                <div className="flex items-center">
+1731:                  <span className="w-28 text-right mr-2">盘具条码录入：</span>
+1732:                  <input type="text" className="w-40 border border-gray-300 px-2 py-1 outline-none focus:border-[#1976d2] bg-white font-normal" />
+1733:                </div>
+1734:                <div className="flex items-center">
+1735:                  <span className="w-24 text-right mr-2">盘具编号：</span>
+1736:                  <input type="text" className="w-32 border border-gray-300 px-2 py-1 outline-none focus:border-[#1976d2] bg-white font-normal" />
+1737:                </div>
+1738:                <div className="flex items-center space-x-4 ml-4 font-normal text-gray-500">
+1739:                  <label className="flex items-center space-x-1 cursor-pointer"><input type="checkbox" className="accent-[#1976d2]" /><span>开机线</span></label>
+1740:                  <label className="flex items-center space-x-1 cursor-pointer"><input type="checkbox" className="accent-[#1976d2]" /><span>导线修复</span></label>
+1741:                  <label className="flex items-center space-x-1 cursor-pointer"><input type="checkbox" className="accent-[#1976d2]" /><span>高精模具</span></label>
+1742:                </div>
+1743:              </div>
+1744:
+1745:              <div className="flex items-center space-x-6 text-[15px] font-bold text-gray-800">
+1746:                <div className="flex items-center">
+1747:                  <span className="w-28 text-right mr-2">主要材料批次：</span>
+1748:                  <input type="text" className="w-40 border border-gray-300 px-2 py-1 outline-none focus:border-[#1976d2] bg-white font-normal" />
+1749:                </div>
+1750:                <div className="flex items-center">
+1751:                  <span className="w-24 text-right mr-2">码数：</span>
+1752:                  <input type="text" className="w-32 border border-gray-300 px-2 py-1 outline-none focus:border-[#1976d2] bg-white font-normal" />
+1753:                </div>
+1754:                <div className="flex items-center">
+1755:                  <span className="w-24 text-right mr-2">盘具重量：</span>
+1756:                  <input type="text" className="w-24 border border-gray-300 px-2 py-1 outline-none focus:border-[#1976d2] bg-white font-normal text-center" />
+1757:                  <span className="ml-2 font-bold text-gray-800">KG</span>
+1758:                </div>
+1759:              </div>
+1760:
+1761:              <div className="text-red-600 text-lg font-bold tracking-wider pt-2 ml-4">
+1762:                此盘线在线检测系统无报警，可输入长度
+1763:              </div>
+1764:            </div>
+1765:
+1766:            {/* Bottom Confirm Button */}
+1767:            <div className="absolute bottom-4 left-0 right-0 flex justify-center">
+1768:              <button 
+1769:                className="w-[60%] bg-[#1976d2] hover:bg-[#1565c0] text-white py-4 text-3xl tracking-[1em] font-medium shadow-sm transition-colors rounded" 
+1770:                onClick={() => alert("确认成功！")}
+1771:              >
+1772:                确定
+1773:              </button>
+1774:            </div>
+1775:          </div>
+1776:
+1777:          {/* Right Sidebar */}
+1778:          <div className="w-80 bg-[#f0f0f0] p-6 flex flex-col items-start shrink-0 border-l border-gray-300">
+1779:            <div className="w-full text-base font-bold mb-3 text-gray-800">检验结果：</div>
+1780:            <button 
+1781:              className={`w-full py-5 text-white border border-gray-300 hover:opacity-90 text-2xl font-bold tracking-widest flex items-center justify-center mb-4 cursor-pointer shadow-sm transition-colors ${qualifyStatus ? 'bg-green-600' : 'bg-red-600'}`}
+1782:              onClick={() => setQualifyStatus(!qualifyStatus)}
+1783:            >
+1784:              {qualifyStatus ? '合格' : '不合格'}
+1785:            </button>
+1786:
+1787:            <button 
+1788:              className="w-full py-3 mb-6 bg-orange-500 hover:bg-orange-600 text-white font-bold text-[15px] rounded shadow-sm transition-colors whitespace-nowrap"
+1789:              onClick={() => onNavigate && onNavigate('ncr')}
+1790:            >
+1791:              发起NCR
+1792:            </button>
+1793:
+1794:            <div className="w-full text-base font-bold mb-2 text-gray-800">不合格代码：</div>
+1795:            <div className="w-full relative mb-10">
+1796:              <input type="text" className="w-full border border-gray-300 px-2 py-3 text-base bg-white focus:outline-none" />
+1797:              <button className="absolute right-[-40px] top-1 text-gray-500 hover:text-gray-700 p-1 bg-transparent">
+1798:                <Search size={28} className="text-gray-500 transform -rotate-90 origin-center" />
+1799:              </button>
+1800:            </div>
+1801:
+1802:            <div className="w-full text-base font-bold mb-2 text-gray-800">长度信息录入：</div>
+1803:            <input type="number" className="w-[70%] border border-gray-300 px-2 py-3 mb-6 focus:outline-none focus:border-blue-400 bg-white" />
+1804:
+1805:            <div className="w-full flex items-center mb-4 mt-2 cursor-pointer" onClick={() => setIsTaskCompleted(!isTaskCompleted)}>
+1806:              <input type="checkbox" className="w-5 h-5 mr-3 accent-[#1976d2] cursor-pointer" checked={isTaskCompleted} readOnly />
+1807:              <span className="text-base font-bold text-gray-800 select-none">此派工任务已完成</span>
+1808:            </div>
+1809:
+1810:            {isTaskCompleted && (
+1811:              <div className="w-full mt-2 animate-in fade-in slide-in-from-top-2 duration-300">
+1812:                <div className="w-full text-base font-bold mb-2 text-[#1976d2]">产量汇报：</div>
+1813:                <input type="number" className="w-[70%] border border-[#1976d2]/50 px-2 py-3 shadow-sm focus:outline-none focus:ring-1 focus:ring-[#1976d2] bg-white" placeholder="请输入本班产量" />
+1814:              </div>
+1815:            )}
+1816:          </div>
+1817:        </div>
+1818:      </div>
+1819:    </div>
+1820:  );
+1821:};
+1822:
+1823:const NCRIssueView = ({ task, onBack }: { task: Task, onBack: () => void }) => {
+1824:  const inspectionItems = [
+1825:    { name: '介损(第一拐点)', en: 'Dielectric...', condition: '0≤值≤0', standard: '315.0~340.0', value: '320.7' },
+1826:    { name: '盐水针孔(12V, 5m)', en: 'Saline Pu...', condition: '≤', standard: '0', value: '0.0' },
+1827:    { name: '软化击穿(升温法)', en: 'Cut throu...', condition: '≥', standard: '450.0', value: '455.0' },
+1828:    { name: '高压针孔(2000V, 12μA)', en: 'online test', condition: '≤', standard: '2', value: '0' },
+1829:    { name: '热冲击(260℃, 6a, 180°弯曲, 30min)', en: 'Heat shock', condition: '=', standard: '不开裂', value: 'OK' },
+1830:    { name: '高低温冲击(空气介质)', en: 'High and ...', condition: '=', standard: 'OK', value: 'OK' },
+1831:    { name: '焊锡(420℃, 30S)', en: 'soldering ...', condition: '=', standard: '漆膜不鼓泡不变色', value: 'OK' },
+1832:    { name: '温度指数', en: 'temperat...', condition: '≥', standard: '240', value: '' },
+1833:    { name: '耐溶剂', en: 'Solubility', condition: '≥', standard: '1', value: '7.0' },
+1834:  ];
+1835:
+1836:  return (
+1837:    <div className="flex flex-col h-full font-sans bg-white p-2">
+1838:      <div className="flex-1 flex flex-col relative no-scrollbar overflow-hidden border border-gray-400 bg-white shadow-md">
+1839:        
+1840:        {/* Top Header */}
+1841:        <div className="flex justify-between items-center px-4 py-3 shrink-0">
+1842:           <div className="flex items-center space-x-2">
+1843:             <div className="text-red-700 font-bold italic tracking-tighter text-3xl">G</div>
+1844:             <div className="font-bold text-gray-700 text-xl font-serif">金杯电工</div>
+1845:             <div className="text-gray-700 text-sm font-bold ml-6">生产设备: <span className="text-gray-900 border-b border-gray-400 px-1">QB152</span></div>
+1846:           </div>
+1847:           
+1848:           <div className="flex space-x-2 items-center">
+1849:             <button onClick={onBack} className="bg-white hover:bg-gray-100 border border-gray-400 px-4 py-1.5 shadow-sm text-gray-700 text-sm font-medium">后退</button>
+1850:           </div>
+1851:        </div>
+1852:
+1853:        {/* Content Area */}
+1854:        <div className="flex flex-1 overflow-hidden px-8 pb-4 pt-2">
+1855:          
+1856:          <div className="flex-1 pb-4 flex flex-col relative">
+1857:             <div className="grid grid-cols-3 gap-y-4 mb-4 text-gray-800 font-bold text-sm tracking-wide">
+1858:               <div>客户名称: <span className="font-normal text-black ml-1">朗高电机</span></div>
+1859:               <div>产品编号: <span className="font-normal text-black ml-1">26040469</span></div>
+1860:               <div>产品型号: <span className="font-normal text-black ml-1">QY(F)PB-3/240</span></div>
+1861:               
+1862:               <div>产品规格: <span className="font-normal text-black ml-1">2.22*3.20</span></div>
+1863:               <div>流转卡号: <span className="font-normal text-black ml-1">2604046902001019</span></div>
+1864:               <div>执行标准: <span className="font-normal text-black ml-1">客户标准</span></div>
+1865:               
+1866:               <div className="col-span-3">备注: <span className="font-normal text-black ml-1">-</span></div>
+1867:             </div>
+1868:
+1869:             <div className="flex-1 border border-gray-400 overflow-y-auto bg-white flex flex-col relative shadow">
+1870:                <table className="w-full text-[15px] border-collapse bg-white">
+1871:                   <thead className="sticky top-0 bg-gray-100 outline outline-1 outline-gray-400 z-10 font-bold border-b border-gray-400 text-gray-800">
+1872:                     <tr>
+1873:                       <th className="px-2 py-3 text-left w-[30%]">项目</th>
+1874:                       <th className="px-2 py-3 text-left w-32 border-l border-gray-400">Project</th>
+1875:                       <th className="px-2 py-3 text-left w-24 border-l border-gray-400">取值符号</th>
+1876:                       <th className="px-2 py-3 text-left border-l border-gray-400">标定值</th>
+1877:                       <th className="px-2 py-3 text-left w-24 border-l border-gray-400 bg-gray-200 flex items-center justify-between">
+1878:                         <div className="flex flex-col items-center"><span>检测</span><span>值</span></div>
+1879:                       </th>
+1880:                     </tr>
+1881:                   </thead>
+1882:                   <tbody>
+1883:                     {inspectionItems.map((item, idx) => (
+1884:                       <tr key={idx} className={`border-b border-gray-400/50 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} text-black font-medium`}>
+1885:                         <td className="px-2 py-2.5 border-r border-gray-400/50">{item.name}</td>
+1886:                         <td className="px-2 py-2.5 text-sm border-r border-gray-400/50 font-bold">{item.en}</td>
+1887:                         <td className="px-2 py-2.5 text-sm border-r border-gray-400/50">{item.condition}</td>
+1888:                         <td className="px-2 py-2.5 text-sm font-bold border-r border-gray-400/50">{item.standard}</td>
+1889:                         <td className="px-0 py-0 bg-white/50 h-full relative">
+1890:                            <input type="text" defaultValue={item.value} className="w-full h-full p-2 bg-transparent focus:bg-white focus:outline-none absolute inset-0 font-bold text-black" />
+1891:                         </td>
+1892:                       </tr>
+1893:                     ))}
+1894:                   </tbody>
+1895:                </table>
+1896:             </div>
+1897:          </div>
+1898:          
+1899:          <div className="w-[320px] flex flex-col pl-10 pr-4 pt-8 shrink-0">
+1900:             <button className="w-full py-4 bg-[#7eb6af] hover:bg-[#6fa59e] mt-4 mb-20 shadow text-gray-800 font-bold text-2xl tracking-widest border border-gray-400/50">
+1901:               作业指导书
+1902:             </button>
+1903:             
+1904:             <div className="text-gray-800 font-bold mb-2">检验结果:</div>
+1905:             <div className="w-full py-3 bg-[#e8274d] text-black text-2xl font-bold tracking-widest flex items-center justify-center mb-10 shadow-sm">
+1906:               不合格
+1907:             </div>
+1908:             
+1909:             <div className="text-gray-800 font-bold mb-1">不合格代码:</div>
+1910:             <div className="w-full relative shadow-sm border border-gray-300 bg-white flex">
+1911:               <input type="text" className="w-full px-2 py-2.5 text-base focus:outline-none" />
+1912:               <button className="w-12 bg-gray-100 hover:bg-gray-200 border-l border-gray-300 flex items-center justify-center text-gray-400">
+1913:                  <Search size={22} className="transform -rotate-90" />
+1914:               </button>
+1915:             </div>
+1916:             <div className="flex-1"></div> {/* Spacer */}
+1917:             
+1918:             <button onClick={onBack} className="w-full py-4 mt-auto bg-[#5a86a0] hover:bg-[#4a758c] text-white font-bold text-2xl tracking-widest shadow-sm">
+1919:               确认
+1920:             </button>
+1921:          </div>
+1922:
+1923:        </div>
+1924:        
+1925:        {/* Footer info block */}
+1926:        <div className="bg-white border-t border-gray-400 px-6 py-2 flex items-center justify-between text-gray-700 shrink-0 text-sm">
+1927:           <div className="flex items-center space-x-12">
+1928:             <span className="font-bold tracking-wider text-black">员工信息区</span>
+1929:             <span>当前操作人员: 杨灵利</span>
+1930:             <span>登录时间: 2026/4/14 10:39:58</span>
+1931:           </div>
+1932:           <div>版本号: V110</div>
+1933:        </div>
+1934:      </div>
+1935:    </div>
+1936:  );
+1937:};
+1938:
+1939:const ScrapStorageView = ({ onBack }: { onBack: () => void }) => {
+1940:  const [activeTab, setActiveTab] = useState<'spool' | 'box'>('spool');
+1941:
+1942:  return (
+1943:    <div className="flex flex-col h-full bg-[#f3f4f6] font-sans">
+1944:      <div className="flex-1 flex flex-col bg-white border m-2 shadow-sm relative overflow-hidden">
+1945:        
+1946:        {/* Top Header */}
+1947:        <div className="bg-[#1e3b5f] flex justify-between items-center px-4 py-2 border-b border-[#1e3b5f] shrink-0">
+1948:          <div className="flex items-center">
+1949:            <span className="font-bold text-white text-[15px]">废品入库</span>
+1950:          </div>
+1951:          <button onClick={onBack} className="bg-white/20 hover:bg-white/30 border border-white/40 px-3 py-1 rounded text-white text-sm focus:outline-none">后退</button>
+1952:        </div>
+1953:
+1954:        {/* Form Controls */}
+1955:        <div className="p-4 bg-gray-100 border-b border-gray-300 flex flex-col space-y-4 shrink-0 shadow-inner">
+1956:          {/* Row 1 */}
+1957:          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+1958:            <div className="flex items-center space-x-2">
+1959:              <span className="font-bold text-gray-800 shrink-0 text-[15px]">托条码:</span>
+1960:              <input type="text" className="border border-gray-300 px-3 py-1.5 focus:outline-none focus:border-[#1976d2] bg-white w-48 shadow-sm" />
+1961:            </div>
+1962:            <div className="flex items-center space-x-2">
+1963:              <input type="checkbox" className="w-5 h-5 accent-[#1976d2] cursor-pointer" id="bad-product" />
+1964:              <label htmlFor="bad-product" className="font-bold text-gray-800 cursor-pointer text-[15px]">不良品入库</label>
+1965:            </div>
+1966:            <div className="flex items-center space-x-2">
+1967:              <span className="font-bold text-gray-800 shrink-0 text-[15px]">仓库:</span>
+1968:              <select className="border border-gray-300 px-3 py-1.5 focus:outline-none focus:border-[#1976d2] bg-white w-40 shadow-sm text-[15px]" defaultValue="不良品仓库">
+1969:                <option value="成品仓库">成品仓库</option>
+1970:                <option value="不良品仓库">不良品仓库</option>
+1971:                <option value="半成品仓库">半成品仓库</option>
+1972:                <option value="安徽原材料仓">安徽原材料仓</option>
+1973:                <option value="报废仓库">报废仓库</option>
+1974:                <option value="不核算成本仓">不核算成本仓</option>
+1975:              </select>
+1976:            </div>
+1977:            <div className="flex items-center space-x-2 ml-auto">
+1978:              <input type="checkbox" className="w-5 h-5 accent-[#1976d2] cursor-pointer" id="save-print" defaultChecked />
+1979:              <label htmlFor="save-print" className="font-bold text-gray-800 cursor-pointer text-[15px]">保存后就打印</label>
+1980:            </div>
+1981:            <div className="flex items-center space-x-2">
+1982:              <span className="font-bold text-gray-800 shrink-0 text-[15px]">打印明细模板:</span>
+1983:              <select className="border border-gray-300 px-3 py-1.5 focus:outline-none focus:border-[#1976d2] bg-white w-40 shadow-sm text-[15px]">
+1984:                <option>箱清单</option>
+1985:              </select>
+1986:            </div>
+1987:          </div>
+1988:
+1989:          {/* Row 2 */}
+1990:          <div className="flex items-center space-x-8 text-[15px]">
+1991:            <div className="flex items-center space-x-2">
+1992:              <span className="font-bold text-gray-800 shrink-0">日期:</span>
+1993:              <span className="font-bold text-black tracking-wide">2026-05-09</span>
+1994:            </div>
+1995:            <div className="flex items-center space-x-2">
+1996:              <span className="font-bold text-gray-800 shrink-0">客户:</span>
+1997:              <input type="text" className="border border-gray-300 px-3 py-1 focus:outline-none focus:border-[#1976d2] bg-white w-32 shadow-sm" />
+1998:            </div>
+1999:            <div className="flex items-center space-x-2 flex-1 max-w-xl">
+2000:              <span className="font-bold text-gray-800 shrink-0">备注:</span>
+2001:              <input type="text" className="border border-gray-300 px-3 py-1 focus:outline-none focus:border-[#1976d2] bg-white flex-1 shadow-sm" />
+2002:            </div>
+2003:          </div>
+2004:        </div>
+2005:
+2006:        {/* Tab Header & Stats */}
+2007:        <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-300 shrink-0">
+2008:          <div className="flex space-x-2">
+2009:            <button 
+2010:              onClick={() => setActiveTab('spool')}
+2011:              className={`px-8 py-2 font-bold text-[15px] shadow-sm transition-colors border ${activeTab === 'spool' ? 'bg-[#31a0db] text-white border-[#2b8ebd]' : 'bg-[#a3a3a3] text-white border-[#909090] hover:bg-[#8f8f8f]'}`}
+2012:            >
+2013:              轴明细
+2014:            </button>
+2015:            <button 
+2016:              onClick={() => setActiveTab('box')}
+2017:              className={`px-8 py-2 font-bold text-[15px] shadow-sm transition-colors border ${activeTab === 'box' ? 'bg-[#31a0db] text-white border-[#2b8ebd]' : 'bg-[#a3a3a3] text-white border-[#909090] hover:bg-[#8f8f8f]'}`}
+2018:            >
+2019:              箱明细
+2020:            </button>
+2021:          </div>
+2022:          <div className="flex space-x-10 text-[16px] font-bold text-gray-800 pr-10">
+2023:            <div>轴数: <span className="text-black text-xl">0</span></div>
+2024:            <div>箱数: <span className="text-black text-xl">0</span></div>
+2025:          </div>
+2026:        </div>
+2027:
+2028:        {/* Table Area */}
+2029:        <div className="flex-1 overflow-auto bg-white">
+2030:          <table className="w-full text-sm border-collapse min-w-max">
+2031:            <thead className="bg-[#f5f5f5] sticky top-0 z-10 shadow-[0_1px_0_#d1d5db]">
+2032:              <tr>
+2033:                <th className="px-4 py-2.5 border-b border-gray-400 border-r text-center font-bold text-gray-800 w-12">序号</th>
+2034:                <th className="px-4 py-2.5 border-b border-gray-400 border-r text-center font-bold text-gray-800 min-w-[120px]">托条码</th>
+2035:                <th className="px-4 py-2.5 border-b border-gray-400 border-r text-center font-bold text-gray-800 min-w-[120px]">箱条码</th>
+2036:                <th className="px-4 py-2.5 border-b border-gray-400 border-r text-center font-bold text-gray-800 min-w-[120px]">轴条码</th>
+2037:                <th className="px-4 py-2.5 border-b border-gray-400 border-r text-left font-bold text-gray-800 min-w-[120px]">物料编号</th>
+2038:                <th className="px-4 py-2.5 border-b border-gray-400 border-r text-left font-bold text-gray-800 min-w-[150px]">物料名称</th>
+2039:                <th className="px-4 py-2.5 border-b border-gray-400 border-r text-left font-bold text-gray-800 min-w-[120px]">客户物料编号</th>
+2040:                <th className="px-4 py-2.5 border-b border-gray-400 border-r text-left font-bold text-gray-800 min-w-[100px]">规格</th>
+2041:                <th className="px-4 py-2.5 border-b border-gray-400 text-right font-bold text-gray-800 min-w-[100px]">净重(KG)</th>
+2042:              </tr>
+2043:            </thead>
+2044:            <tbody>
+2045:              {/* Empty state for demonstration */}
+2046:              <tr>
+2047:                <td colSpan={9} className="text-center py-20 text-gray-400 bg-gray-50 border-b border-gray-200">
+2048:                  <div className="flex flex-col items-center justify-center">
+2049:                    <ClipboardList size={48} className="mb-4 text-gray-300" />
+2050:                    <span className="text-base tracking-wide font-medium">暂无明细数据，请扫描条码</span>
+2051:                  </div>
+2052:                </td>
+2053:              </tr>
+2054:            </tbody>
+2055:          </table>
+2056:        </div>
+2057:
+2058:        {/* Footer Actions */}
+2059:        <div className="bg-gray-100 border-t border-gray-300 p-4 flex justify-center shrink-0">
+2060:          <button className="bg-[#0071ae] hover:bg-[#005a8f] text-white px-20 py-2.5 font-bold shadow-md tracking-widest text-[16px] transition-colors focus:outline-none border border-[#005a8f] rounded">
+2061:            保存
+2062:          </button>
+2063:        </div>
+2064:      </div>
+2065:    </div>
+2066:  );
+2067:};
+2068:
+2069:const ScrapHandoverView = ({ onBack }: { onBack: () => void }) => {
+2070:  const [scannedItems, setScannedItems] = useState([
+2071:    { id: 'FP2605140001', name: '拉丝废铜', spec: 'Φ3.00', weight: '24.5', time: '10:45:12' },
+2072:    { id: 'FP2605140002', name: '绝缘废皮', spec: '-', weight: '2.1', time: '10:46:08' }
+2073:  ]);
+2074:
+2075:  return (
+2076:    <div className="flex flex-col h-full bg-[#f3f4f6] font-sans">
+2077:      <div className="flex-1 flex flex-col bg-white border m-2 shadow-sm relative no-scrollbar overflow-hidden">
+2078:        
+2079:        {/* Top Header */}
+2080:        <div className="bg-[#1e3b5f] flex justify-between items-center px-4 py-2 border-b border-[#1e3b5f] shrink-0">
+2081:          <div className="flex items-center">
+2082:            <span className="font-bold text-white text-base tracking-widest">交废入库</span>
+2083:          </div>
+2084:          <button onClick={onBack} className="bg-white/20 hover:bg-white/30 border border-white/40 px-3 py-1 rounded text-white text-sm focus:outline-none">后退</button>
+2085:        </div>
+2086:
+2087:        {/* Info Banner */}
+2088:        <div className="bg-[#eff6ff] text-[#1976d2] px-6 py-2.5 flex items-start text-sm border-b border-[#bfdbfe] shrink-0">
+2089:          <Info size={18} className="mr-2 shrink-0" />
+2090:          <span>根据调拨类型自动匹配收发仓库，只需扫描物料即可。</span>
+2091:        </div>
+2092:
+2093:        {/* Form Fields */}
+2094:        <div className="px-6 py-6 border-b border-gray-200 shrink-0 bg-gray-50 flex flex-col">
+2095:          <div className="grid grid-cols-2 gap-x-12 gap-y-6 max-w-4xl">
+2096:            <div className="flex items-center space-x-4">
+2097:              <span className="w-24 text-right text-gray-700 font-bold text-[15px]">入库类型:</span>
+2098:              <input type="text" value="废品入库" disabled className="flex-1 border border-gray-300 bg-gray-200 rounded px-3 py-2 text-gray-800" />
+2099:            </div>
+2100:            
+2101:            <div className="flex items-center space-x-4">
+2102:              <span className="w-24 text-right text-gray-700 font-bold text-[15px]">调出仓库:</span>
+2103:              <input type="text" value="拉丝车间工序仓" disabled className="flex-1 border border-gray-300 bg-gray-200 rounded px-3 py-2 text-gray-800" />
+2104:            </div>
+2105:
+2106:            <div className="flex items-center space-x-4">
+2107:              <span className="w-24 text-right text-gray-700 font-bold text-[15px]">调入仓库:</span>
+2108:              <select className="flex-1 border border-gray-300 rounded px-3 py-2 text-gray-800 bg-white focus:outline-none focus:border-[#1976d2]">
+2109:                <option value="scrap">废品仓</option>
+2110:                <option value="other">工序委外仓</option>
+2111:                <option value="other2">总成品仓</option>
+2112:              </select>
+2113:            </div>
+2114:            
+2115:            <div className="flex items-center space-x-4">
+2116:              <span className="w-24 text-right text-gray-700 font-bold text-[15px]">待交废条码:</span>
+2117:              <div className="flex-1 relative">
+2118:                <input 
+2119:                  type="text" 
+2120:                  placeholder="请扫描或输入待交废的材料条码" 
+2121:                  className="w-full border border-[#1976d2] rounded px-3 py-2 text-gray-800 bg-white focus:outline-none focus:ring-1 focus:ring-[#1976d2]" 
+2122:                />
+2123:                <ScanLine size={18} className="absolute right-3 top-2.5 text-[#1976d2]" />
+2124:              </div>
+2125:            </div>
+2126:          </div>
+2127:        </div>
+2128:        
+2129:        {/* Scanned Details Area */}
+2130:        <div className="flex-1 flex flex-col min-h-0 bg-white">
+2131:          <div className="px-6 py-2 bg-white border-b border-gray-200 flex items-center justify-between">
+2132:            <span className="font-bold text-gray-800 text-[15px]">已扫描明细 (共 {scannedItems.length} 条)</span>
+2133:          </div>
+2134:          
+2135:          <div className="flex-1 overflow-auto">
+2136:            <table className="w-full text-sm border-collapse">
+2137:              <thead className="bg-[#f5f5f5] sticky top-0 z-10 shadow-[0_1px_0_#d1d5db]">
+2138:                <tr>
+2139:                  <th className="px-4 py-2 border-b border-gray-400 border-r text-center font-bold text-gray-800 w-16">序号</th>
+2140:                  <th className="px-4 py-2 border-b border-gray-400 border-r text-center font-bold text-gray-800">条形码</th>
+2141:                  <th className="px-4 py-2 border-b border-gray-400 border-r text-left font-bold text-gray-800">物料名称</th>
+2142:                  <th className="px-4 py-2 border-b border-gray-400 border-r text-left font-bold text-gray-800">规格</th>
+2143:                  <th className="px-4 py-2 border-b border-gray-400 border-r text-right font-bold text-gray-800">交废重量 (KG)</th>
+2144:                  <th className="px-4 py-2 border-b border-gray-400 text-center font-bold text-gray-800 w-32">扫描时间</th>
+2145:                </tr>
+2146:              </thead>
+2147:              <tbody>
+2148:                {scannedItems.length > 0 ? (
+2149:                  scannedItems.map((item, idx) => (
+2150:                    <tr key={item.id} className="border-b border-gray-200 hover:bg-blue-50">
+2151:                      <td className="px-4 py-2.5 text-center text-gray-600 border-r border-gray-200">{idx + 1}</td>
+2152:                      <td className="px-4 py-2.5 text-center font-mono text-[#1976d2] font-semibold border-r border-gray-200">{item.id}</td>
+2153:                      <td className="px-4 py-2.5 text-gray-800 font-medium border-r border-gray-200">{item.name}</td>
+2154:                      <td className="px-4 py-2.5 text-gray-600 border-r border-gray-200">{item.spec}</td>
+2155:                      <td className="px-4 py-2.5 text-right font-bold text-green-700 border-r border-gray-200">{item.weight}</td>
+2156:                      <td className="px-4 py-2.5 text-center text-gray-500">{item.time}</td>
+2157:                    </tr>
+2158:                  ))
+2159:                ) : (
+2160:                  <tr>
+2161:                    <td colSpan={6} className="text-center py-20 text-gray-400 bg-gray-50/50">
+2162:                      <div className="flex flex-col items-center justify-center">
+2163:                        <ScanLine size={48} className="mb-4 text-gray-300" />
+2164:                        <span className="text-base tracking-wide font-medium">暂无扫描数据</span>
+2165:                      </div>
+2166:                    </td>
+2167:                  </tr>
+2168:                )}
+2169:              </tbody>
+2170:            </table>
+2171:          </div>
+2172:        </div>
+2173:
+2174:        {/* Actions */}
+2175:        <div className="bg-gray-100 border-t border-gray-300 py-3 flex justify-center shrink-0">
+2176:           <button className="bg-[#1976d2] hover:bg-[#1565c0] text-white px-32 py-3 rounded text-[16px] shadow tracking-widest font-bold">
+2177:             确认交废入库
+2178:           </button>
+2179:        </div>
+2180:
+2181:      </div>
+2182:    </div>
+2183:  );
+2184:};
+2185:
+2186:const UnloadView = ({ task, onBack }: { task: Task, onBack: () => void }) => {
+2187:  return (
+2188:    <div className="flex flex-col h-full bg-[#f3f4f6] font-sans">
+2189:      <div className="flex-1 flex flex-col bg-white border m-2 shadow-sm relative no-scrollbar overflow-y-auto">
+2190:        {/* Top Header */}
+2191:        <div className="bg-[#1e3b5f] flex justify-between items-center px-4 py-2 border-b border-[#1e3b5f] shrink-0">
+2192:          <div className="flex items-center">
+2193:            <span className="font-bold text-white text-base tracking-widest">上料解除</span>
+2194:          </div>
+2195:          <button onClick={onBack} className="bg-white/20 hover:bg-white/30 border border-white/40 px-3 py-1 rounded text-white text-sm">后退</button>
+2196:        </div>
+2197:
+2198:        {/* Machine info */}
+2199:        <div className="flex justify-between items-center px-4 py-2 border-b border-gray-300 font-bold text-gray-800 text-sm">
+2200:          <span>机台：1#单绞机</span>
+2201:          <span>班次：2024032901</span>
+2202:          <span className="w-1/3"></span>
+2203:        </div>
+2204:
+2205:        <div className="bg-[#1976d2] px-4 py-1.5 text-white text-sm font-bold tracking-widest border-b border-[#1976d2]">
+2206:          上料列表
+2207:        </div>
+2208:
+2209:        {/* Table Area */}
+2210:        <div className="flex-1 overflow-auto border-b border-gray-300">
+2211:          <table className="w-full text-xs text-center border-collapse">
+2212:            <thead className="bg-[#f0f0f0] border-b border-gray-400">
+2213:              <tr>
+2214:                <th className="px-2 py-3 border-r border-gray-300 w-12 font-bold text-gray-700"></th>
+2215:                <th className="px-2 py-3 border-r border-gray-300 font-bold text-gray-700">批号/SN</th>
+2216:                <th className="px-2 py-3 border-r border-gray-300 font-bold text-gray-700 leading-tight">型号<br/>规格</th>
+2217:                <th className="px-2 py-3 border-r border-gray-300 font-bold text-gray-700 leading-tight">物料名称<br/>颜色</th>
+2218:                <th className="px-2 py-3 border-r border-gray-300 font-bold text-gray-700 leading-tight">上料用量<br/>单位</th>
+2219:                <th className="px-2 py-3 border-r border-gray-300 font-bold text-gray-700">实际用量</th>
+2220:                <th className="px-2 py-3 border-r border-gray-300 font-bold text-gray-700">计算结余</th>
+2221:                <th className="px-2 py-3 border-r border-gray-300 font-bold text-gray-700">实际结余</th>
+2222:                <th className="px-2 py-3 font-bold text-gray-700">备注</th>
+2223:              </tr>
+2224:            </thead>
+2225:            <tbody>
+2226:              <tr className="border-b border-gray-200 hover:bg-gray-50">
+2227:                <td className="px-2 py-4 border-r border-gray-300">
+2228:                  <input type="checkbox" className="w-4 h-4 rounded border-gray-400 accent-blue-600" />
+2229:                </td>
+2230:                <td className="px-2 py-4 border-r border-gray-300 text-gray-800">JS0022403140003</td>
+2231:                <td className="px-2 py-4 border-r border-gray-300 text-gray-800">0.5</td>
+2232:                <td className="px-2 py-4 border-r border-gray-300 text-gray-800 text-left leading-tight">RVVP绝缘线芯-麓谷<br/>棕色</td>
+2233:                <td className="px-2 py-4 border-r border-gray-300 text-gray-800 leading-tight">0.5719<br/>千米</td>
+2234:                <td className="px-2 py-4 border-r border-gray-300 text-gray-800">0</td>
+2235:                <td className="px-2 py-4 border-r border-gray-300 text-gray-800">0.5719</td>
+2236:                <td className="px-2 py-4 border-r border-gray-300 p-0 align-middle">
+2237:                  <input type="text" defaultValue="0.5719" className="w-16 border border-gray-300 px-1 py-1 focus:outline-none focus:border-blue-400 text-center mx-auto" />
+2238:                </td>
+2239:                <td className="px-2 py-4 text-gray-800"></td>
+2240:              </tr>
+2241:            </tbody>
+2242:          </table>
+2243:        </div>
+2244:
+2245:        {/* Bottom Form */}
+2246:        <div className="p-3 border-t border-gray-300 flex justify-center bg-white shrink-0">
+2247:          <button className="bg-[#1976d2] hover:bg-[#1565c0] text-white px-12 py-2 text-base font-bold tracking-[0.2em] transition-colors rounded" onClick={() => {
+2248:            alert('上料解除成功！');
+2249:            onBack();
+2250:          }}>
+2251:            提交
+2252:          </button>
+2253:        </div>
+2254:      </div>
+2255:    </div>
+2256:  );
+2257:};
+2258:
+2259:const TailWeighView = ({ task, onBack }: { task: Task, onBack: () => void }) => {
+2260:  const [weighedValues, setWeighedValues] = useState<Record<string, string>>({});
+2261:
+2262:  return (
+2263:    <div className="flex flex-col h-full bg-[#f3f4f6] font-sans">
+2264:      <div className="flex-1 flex flex-col bg-white border m-2 shadow-sm relative no-scrollbar overflow-y-auto">
+2265:        {/* Top Header */}
+2266:        <div className="bg-[#1e3b5f] flex justify-between items-center px-4 py-2 border-b border-[#1e3b5f] shrink-0">
+2267:          <div className="flex items-center">
+2268:            <span className="font-bold text-white text-base tracking-widest">尾料称重操作</span>
+2269:          </div>
+2270:          <button onClick={onBack} className="bg-white/20 hover:bg-white/30 border border-white/40 px-3 py-1 rounded text-white text-sm">后退</button>
+2271:        </div>
+2272:
+2273:        {/* Content */}
+2274:        <div className="p-6">
+2275:          <div className="mb-4 bg-blue-50 p-4 border border-blue-100 rounded text-[#1976d2] text-[14px] font-medium flex items-center">
+2276:            <Info size={20} className="mr-2 shrink-0" />
+2277:            <span>系统实现对下料的电磁线材料进行尾料称重操作，请录入称重重量。</span>
+2278:          </div>
+2279:
+2280:          <table className="w-full text-sm border-collapse mt-4">
+2281:            <thead className="bg-[#f5f5f5] shadow-[0_1px_0_#d1d5db]">
+2282:              <tr>
+2283:                <th className="px-4 py-3 border-b border-gray-400 border-r text-center font-bold text-gray-800 w-16">序号</th>
+2284:                <th className="px-4 py-3 border-b border-gray-400 border-r text-left font-bold text-gray-800">物料编码</th>
+2285:                <th className="px-4 py-3 border-b border-gray-400 border-r text-left font-bold text-gray-800">物料名称</th>
+2286:                <th className="px-4 py-3 border-b border-gray-400 border-r text-left font-bold text-gray-800">规格</th>
+2287:                <th className="px-4 py-3 border-b border-gray-400 border-r text-right font-bold text-gray-800">称重前理论重量 (KG)</th>
+2288:                <th className="px-4 py-3 border-b border-gray-400 text-center font-bold text-gray-800 w-48">实际称重 (KG)</th>
+2289:              </tr>
+2290:            </thead>
+2291:            <tbody>
+2292:              {task.bom?.map((b, idx) => (
+2293:                <tr key={b.id} className="border-b border-gray-200 hover:bg-blue-50">
+2294:                  <td className="px-4 py-3 text-center text-gray-600 border-r border-gray-200">{idx + 1}</td>
+2295:                  <td className="px-4 py-3 font-mono text-[#1976d2] font-semibold border-r border-gray-200">{b.materialCode}</td>
+2296:                  <td className="px-4 py-3 text-gray-800 font-medium border-r border-gray-200">{b.materialName}</td>
+2297:                  <td className="px-4 py-3 text-gray-600 border-r border-gray-200">{b.spec}</td>
+2298:                  <td className="px-4 py-3 text-right font-bold text-gray-700 border-r border-gray-200">
+2299:                    {(b.requiredQty * 0.1).toFixed(2)}
+2300:                  </td>
+2301:                  <td className="px-4 py-2 text-center bg-white">
+2302:                    <input 
+2303:                      type="number" 
+2304:                      value={weighedValues[b.id] || ''} 
+2305:                      onChange={e => setWeighedValues({ ...weighedValues, [b.id]: e.target.value })}
+2306:                      className="w-full border border-[#1976d2] rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#1976d2] text-center font-bold text-gray-800"
+2307:                      placeholder="输入重量"
+2308:                    />
+2309:                  </td>
+2310:                </tr>
+2311:              )) || <tr><td colSpan={6} className="text-center py-10 text-gray-500">无物料明细数据</td></tr>}
+2312:            </tbody>
+2313:          </table>
+2314:        </div>
+2315:
+2316:        <div className="mt-auto p-4 bg-gray-50 border-t border-gray-200 flex justify-center">
+2317:          <button 
+2318:            className="bg-[#1976d2] hover:bg-[#1565c0] text-white px-24 py-3 rounded text-[16px] shadow-sm tracking-widest font-bold"
+2319:            onClick={() => {
+2320:              alert('尾料称重保存成功！');
+2321:              onBack();
+2322:            }}
+2323:          >
+2324:            保存称重结果
+2325:          </button>
+2326:        </div>
+2327:
+2328:      </div>
+2329:    </div>
+2330:  );
+2331:};
+2332:
+2333:export default function App() {
+2334:  const [currentView, setCurrentView] = useState('home');
+2335:  const [tasks, setTasks] = useState<Task[]>(mockTasks);
+2336:  const [moldRecords, setMoldRecords] = useState<MoldRecord[]>(mockMoldRecords);
+2337:  const [moldInventory, setMoldInventory] = useState<MoldInventory[]>(mockMoldInventory);
+2338:  
+2339:  // Selection
+2340:  const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
+2341:  const [activeEquipment, setActiveEquipment] = useState('E5'); 
+2342:
+2343:  // Modals
+2344:  const [showMoldModal, setShowMoldModal] = useState<'mount' | 'unmount' | 'requisition' | null>(null);
+2345:  const [moldInput, setMoldInput] = useState('');
+2346:  
+2347:  // Requisition selections
+2348:  const [selectedInventoryMold, setSelectedInventoryMold] = useState<string>('');
+2349:
+2350:  const handleBack = () => {
+2351:    setCurrentView('home');
+2352:    setSelectedTaskIds([]);
+2353:  };
+2354:
+2355:  const toggleTaskSelection = (id: string) => {
+2356:    // For this example, we allow single selection for simplicity when showing details/molds
+2357:    setSelectedTaskIds([id]);
+2358:  };
+2359:
+2360:  const handleMoldSubmit = (overrideMoldId?: string) => {
+2361:    const finalMoldId = typeof overrideMoldId === 'string' ? overrideMoldId : moldInput;
+2362:    if (!finalMoldId || selectedTaskIds.length === 0) return;
+2363:    
+2364:    const newRecord: MoldRecord = {
+2365:      id: `M${Date.now()}`,
+2366:      taskId: selectedTaskIds[0],
+2367:      action: showMoldModal!,
+2368:      moldId: finalMoldId,
+2369:      operator: '管理员',
+2370:      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19)
+2371:    };
+2372:
+2373:    setMoldRecords([...moldRecords, newRecord]);
+2374:    
+2375:    if (showMoldModal === 'requisition' || showMoldModal === 'mount') {
+2376:      setMoldInventory(prev => prev.map(m => m.id === finalMoldId ? { ...m, status: 'in-use' } : m));
+2377:      if (showMoldModal === 'mount') {
+2378:        setTasks(prev => prev.map(t => t.id === selectedTask?.id ? { ...t, moldStatus: '已上模' } : t));
+2379:      }
+2380:    } else if (showMoldModal === 'unmount') {
+2381:      setMoldInventory(prev => prev.map(m => m.id === finalMoldId ? { ...m, status: 'available' } : m));
+2382:      setTasks(prev => prev.map(t => t.id === selectedTask?.id ? { ...t, moldStatus: '未上模' } : t));
+2383:    }
+2384:
+2385:    setMoldInput('');
+2386:    setSelectedInventoryMold('');
+2387:    setShowMoldModal(null);
+2388:    let actionText = '上模';
+2389:    if (showMoldModal === 'unmount') actionText = '下模';
+2390:    if (showMoldModal === 'requisition') actionText = '领用';
+2391:    alert(`${actionText}记录成功: ${finalMoldId}`);
+2392:  };
+2393:
+2394:  const selectedTask = tasks.find(t => t.id === selectedTaskIds[0]);
+2395:
+2396:  return (
+2397:    <div className="flex flex-col h-screen bg-[#f3f4f6] font-sans text-gray-800">
+2398:      
+2399:      {/* Header */}
+2400:      {currentView !== 'equip-accept' && currentView !== 'material-substitute' && currentView !== 'tail-weigh' && currentView !== 'scrap-storage' && currentView !== 'scrap-handover' && currentView !== 'ncr' && currentView !== 'task-details' && currentView !== 'production-report' && currentView !== 'material-load' && currentView !== 'unload' && currentView !== 'handover-material-load' && currentView !== 'product-handover' && (
+2401:        <Header 
+2402:          title={currentView === 'home' ? '生产工位机终端' : 
+2403:                 currentView === 'tasks' ? '我的任务' : 
+2404:                 currentView === 'scrap' ? '废品归集' : 
+2405:                 currentView === 'equip-check' ? '设备点检' : 
+2406:                 currentView === 'equip-repair' ? '设备报修' : 
+2407:                 currentView === 'equip-fix' ? '设备维修' : 
+2408:                 currentView === 'equip-accept' ? '设备验收' : '生产工位机终端'} 
+2409:          onBack={currentView !== 'home' ? handleBack : undefined}
+2410:        />
+2411:      )}
+2412:
+2413:      {/* Main Content Area */}
+2414:      <main className="flex-1 overflow-hidden relative flex flex-col">
+2415:        {currentView === 'home' && (
+2416:          <HomeMenu onNavigate={setCurrentView} />
+2417:        )}
+2418:
+2419:        {currentView === 'scrap' && (
+2420:          <div className="flex flex-col h-full bg-white overflow-y-auto p-6">
+2421:            <div className="max-w-5xl mx-auto w-full">
+2422:              <div className="flex justify-between items-center mb-8 pb-4 border-b">
+2423:                <h2 className="text-2xl font-bold text-gray-800 flex items-center">
+2424:                  <Archive className="mr-3 text-gray-500" />
+2425:                  废品归集
+2426:                </h2>
+2427:                <div className="flex space-x-4">
+2428:                  <label className="flex items-center space-x-2 text-sm text-gray-600">
+2429:                    <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+2430:                    <span>显示通讯端口设置</span>
+2431:                  </label>
+2432:                  <label className="flex items-center space-x-2 text-sm text-gray-600">
+2433:                    <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+2434:                    <span>打印汇总标签</span>
+2435:                  </label>
+2436:                </div>
+2437:              </div>
+2438:
+2439:              <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-6">
+2440:                {/* Row 1 */}
+2441:                <div className="flex flex-col">
+2442:                  <label className="text-sm font-bold text-gray-700 mb-1">废品类型</label>
+2443:                  <select className="border border-gray-300 rounded-md px-3 py-2 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+2444:                    <option>铜基废焊带</option>
+2445:                    <option>紫铜废边角料</option>
+2446:                    <option>废铝线</option>
+2447:                  </select>
+2448:                </div>
+2449:
+2450:                <div className="flex flex-col relative z-20">
+2451:                  <label className="text-sm font-bold text-gray-700 mb-1">派工单</label>
+2452:                  <select className="border border-gray-300 rounded-md px-3 py-2 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+2453:                    <option>均摊扣料</option>
+2454:                    {tasks.map(t => (
+2455:                      <option key={t.id} value={t.id}>{t.id} {t.spec}</option>
+2456:                    ))}
+2457:                  </select>
+2458:                </div>
+2459:
+2460:                <div className="flex flex-col items-center justify-center">
+2461:                   <span className="text-red-500 font-bold text-xl tracking-widest">废品称重</span>
+2462:                </div>
+2463:
+2464:                {/* Row 2 */}
+2465:                <div className="flex flex-col">
+2466:                  <label className="text-sm font-bold text-gray-700 mb-1">报废类型</label>
+2467:                  <select className="border border-gray-300 rounded-md px-3 py-2 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+2468:                    <option>生产报废</option>
+2469:                    <option>调试报废</option>
+2470:                    <option>检验报废</option>
+2471:                  </select>
+2472:                </div>
+2473:
+2474:                <div className="flex flex-col">
+2475:                  <label className="text-sm font-bold text-gray-700 mb-1">规格</label>
+2476:                  <div className="px-3 py-2 bg-gray-100 rounded-md border border-gray-200 text-gray-500 h-10">
+2477:                    {/* Auto populated normally */}
+2478:                  </div>
+2479:                </div>
+2480:
+2481:                <div className="flex flex-col">
+2482:                  <label className="text-sm font-bold text-gray-700 mb-1">物料名称</label>
+2483:                  <div className="px-3 py-2 bg-gray-100 rounded-md border border-gray-200 text-gray-500 h-10">
+2484:                    铜基废焊带
+2485:                  </div>
+2486:                </div>
+2487:
+2488:                {/* Row 3 */}
+2489:                <div className="flex flex-col">
+2490:                  <label className="text-sm font-bold text-gray-700 mb-1">报废原因</label>
+2491:                  <select className="border border-gray-300 rounded-md px-3 py-2 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+2492:                    <option>换规格</option>
+2493:                    <option>断线</option>
+2494:                    <option>绝缘损坏</option>
+2495:                    <option>起皮</option>
+2496:                  </select>
+2497:                </div>
+2498:
+2499:                {/* Empty columns to align with previous rows visually if needed, but per image it's a flow */}
+2500:                <div className="col-span-2"></div>
+2501:
+2502:                {/* Row 4 */}
+2503:                <div className="flex flex-col">
+2504:                  <label className="text-sm font-bold text-gray-700 mb-1">废品长度</label>
+2505:                  <div className="flex items-center space-x-2">
+2506:                    <input type="number" defaultValue={0} className="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-right" />
+2507:                    <span className="font-bold text-gray-700 w-8">千米</span>
+2508:                  </div>
+2509:                </div>
+2510:
+2511:                <div className="flex flex-col">
+2512:                  <label className="text-sm font-bold text-gray-700 mb-1">报废重量</label>
+2513:                  <div className="flex items-center space-x-2">
+2514:                    <input type="number" defaultValue={0} step="0.01" className="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-right" />
+2515:                    <span className="font-bold text-gray-700 w-8">千克</span>
+2516:                  </div>
+2517:                </div>
+2518:
+2519:                <div className="flex flex-col">
+2520:                  <label className="text-sm font-bold text-gray-700 mb-1">批号</label>
+2521:                  <input type="text" defaultValue="20260509" className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+2522:                </div>
+2523:
+2524:                {/* Row 5 */}
+2525:                <div className="flex flex-col">
+2526:                  <label className="text-sm font-bold text-gray-700 mb-1">汇报人</label>
+2527:                  <div className="relative">
+2528:                    <input type="text" defaultValue="管理员" className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+2529:                    <button className="absolute right-2 top-2 text-gray-500 hover:text-blue-600">
+2530:                      <Search size={20} />
+2531:                    </button>
+2532:                  </div>
+2533:                </div>
+2534:
+2535:                <div className="flex flex-col md:col-span-1">
+2536:                   <label className="text-sm font-bold text-gray-700 mb-1">备注</label>
+2537:                   <textarea rows={2} className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"></textarea>
+2538:                </div>
+2539:
+2540:                <div className="flex flex-col">
+2541:                  <label className="text-sm font-bold text-gray-700 mb-1">报废时间</label>
+2542:                  <input type="datetime-local" defaultValue="2026-05-09T16:05" className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+2543:                </div>
+2544:              </div>
+2545:
+2546:              {/* Action Buttons */}
+2547:              <div className="mt-12 flex justify-end">
+2548:                <button 
+2549:                  onClick={() => alert('保存成功！')}
+2550:                  className="bg-[#1976d2] hover:bg-[#1565c0] text-white px-12 py-3 rounded text-lg font-bold shadow-md transition-colors"
+2551:                >
+2552:                  保存
+2553:                </button>
+2554:              </div>
+2555:            </div>
+2556:          </div>
+2557:        )}
+2558:
+2559:        {currentView === 'equip-check' && (
+2560:          <EquipCheckView onNavigate={setCurrentView} />
+2561:        )}
+2562:
+2563:        {currentView === 'equip-repair' && (
+2564:          <EquipmentRepairView />
+2565:        )}
+2566:
+2567:        {currentView === 'equip-fix' && (
+2568:          <EquipFixView />
+2569:        )}
+2570:
+2571:        {currentView === 'equip-accept' && (
+2572:          <EquipAcceptView onBack={() => setCurrentView('home')} />
+2573:        )}
+2574:
+2575:        {currentView === 'tasks' && (
+2576:          <div className="flex flex-col h-full bg-white">
+2577:            {/* Equipment Tabs */}
+2578:            <div className="flex bg-gray-100 p-2 space-x-2 shrink-0 border-b">
+2579:              {mockEquipments.map(eq => (
+2580:                <button
+2581:                  key={eq.id}
+2582:                  onClick={() => setActiveEquipment(eq.id)}
+2583:                  className={`px-6 py-2 rounded text-sm font-medium ${
+2584:                    activeEquipment === eq.id 
+2585:                      ? 'bg-[#1976d2] text-white shadow-sm' 
+2586:                      : 'bg-white text-gray-600 border hover:bg-gray-50'
+2587:                  }`}
+2588:                >
+2589:                  {eq.name}
+2590:                </button>
+2591:              ))}
+2592:            </div>
+2593:
+2594:            {/* Filter Bar */}
+2595:            <div className="flex items-center p-3 space-x-4 border-b text-sm shrink-0">
+2596:              <div className="flex items-center space-x-2">
+2597:                <label className="text-gray-500">规格</label>
+2598:                <input type="text" className="border rounded px-2 py-1 w-24 outline-none focus:border-blue-500" />
+2599:              </div>
+2600:              <div className="flex items-center space-x-2">
+2601:                <label className="text-gray-500">型号</label>
+2602:                <input type="text" className="border rounded px-2 py-1 w-24 outline-none focus:border-blue-500" />
+2603:              </div>
+2604:              <div className="flex items-center space-x-2">
+2605:                <label className="text-gray-500">计划完工时间</label>
+2606:                <input type="date" className="border rounded px-2 py-1 outline-none text-gray-600 focus:border-blue-500" />
+2607:                <span className="text-gray-400">-</span>
+2608:                <input type="date" className="border rounded px-2 py-1 outline-none text-gray-600 focus:border-blue-500" />
+2609:              </div>
+2610:              <button className="bg-[#1976d2] text-white p-1.5 rounded hover:bg-[#1565c0]">
+2611:                <Search size={18} />
+2612:              </button>
+2613:              <button className="border text-gray-500 p-1.5 rounded hover:bg-gray-100">
+2614:                <RefreshCw size={18} />
+2615:              </button>
+2616:            </div>
+2617:
+2618:            {/* Table */}
+2619:            <div className="flex-1 overflow-auto">
+2620:              <table className="w-full text-sm text-left whitespace-nowrap">
+2621:                <thead className="bg-[#eef2f6] sticky top-0 text-gray-600 font-medium z-10 shadow-sm">
+2622:                  <tr>
+2623:                    <th className="px-4 py-3 border-b">派工单号</th>
+2624:                    <th className="px-4 py-3 border-b text-center">订单状态</th>
+2625:                    <th className="px-4 py-3 border-b text-center">上料状态</th>
+2626:                    <th className="px-4 py-3 border-b text-center">模具状态</th>
+2627:                    <th className="px-4 py-3 border-b">物料编码</th>
+2628:                    <th className="px-4 py-3 border-b">物料名称</th>
+2629:                    <th className="px-4 py-3 border-b text-right">计划数量</th>
+2630:                    <th className="px-4 py-3 border-b text-right">报工数量</th>
+2631:                    <th className="px-4 py-3 border-b text-right">派工数量</th>
+2632:                    <th className="px-4 py-3 border-b text-center">单位</th>
+2633:                    <th className="px-4 py-3 border-b">工序</th>
+2634:                    <th className="px-4 py-3 border-b">规格</th>
+2635:                    <th className="px-4 py-3 border-b">型号</th>
+2636:                    <th className="px-4 py-3 border-b">计划开工时间</th>
+2637:                    <th className="px-4 py-3 border-b">计划完工时间</th>
+2638:                    <th className="px-4 py-3 border-b">备注</th>
+2639:                  </tr>
+2640:                </thead>
+2641:                <tbody>
+2642:                  {tasks.map(task => {
+2643:                    const isSelected = selectedTaskIds.includes(task.id);
+2644:                    return (
+2645:                      <tr 
+2646:                        key={task.id} 
+2647:                        onClick={() => toggleTaskSelection(task.id)}
+2648:                        className={`cursor-pointer border-b last:border-0 hover:bg-gray-50 transition-colors ${
+2649:                          isSelected ? 'bg-yellow-100 hover:bg-yellow-100' : ''
+2650:                        }`}
+2651:                      >
+2652:                        <td className="px-4 py-3 text-blue-600 font-medium">{task.id}</td>
+2653:                        <td className="px-4 py-3 text-center">
+2654:                          <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+2655:                            task.orderStatus === '已开工' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
+2656:                          }`}>
+2657:                            {task.orderStatus || '未开工'}
+2658:                          </span>
+2659:                        </td>
+2660:                        <td className="px-4 py-3 text-center">
+2661:                          <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+2662:                            task.materialLoadStatus === '已上料' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
+2663:                          }`}>
+2664:                            {task.materialLoadStatus || '未上料'}
+2665:                          </span>
+2666:                        </td>
+2667:                        <td className="px-4 py-3 text-center">
+2668:                          <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+2669:                            task.moldStatus === '已上模' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
+2670:                          }`}>
+2671:                            {task.moldStatus || '未上模'}
+2672:                          </span>
+2673:                        </td>
+2674:                        <td className="px-4 py-3">{task.materialCode}</td>
+2675:                        <td className="px-4 py-3">{task.materialName}</td>
+2676:                        <td className="px-4 py-3 text-right">{task.planQty}</td>
+2677:                        <td className="px-4 py-3 text-right text-green-600">{task.reportQty}</td>
+2678:                        <td className="px-4 py-3 text-right">{task.dispatchQty}</td>
+2679:                        <td className="px-4 py-3 text-center text-gray-500">{task.unit}</td>
+2680:                        <td className="px-4 py-3">{task.process}</td>
+2681:                        <td className="px-4 py-3">{task.spec}</td>
+2682:                        <td className="px-4 py-3">{task.model}</td>
+2683:                        <td className="px-4 py-3 text-gray-500">{task.planStartTime}</td>
+2684:                        <td className="px-4 py-3 text-gray-500">{task.planEndTime}</td>
+2685:                        <td className="px-4 py-3 text-gray-400">{task.notes || '-'}</td>
+2686:                      </tr>
+2687:                    );
+2688:                  })}
+2689:                </tbody>
+2690:              </table>
+2691:              {tasks.length === 0 && (
+2692:                <div className="text-center text-gray-400 mt-20">暂无更多数据</div>
+2693:              )}
+2694:            </div>
+2695:
+2696:            {/* Bottom Actions Bar */}
+2697:            <div className="bg-[#1976d2] text-white p-2 flex shrink-0 space-x-2">
+2698:              <button 
+2699:                disabled={selectedTaskIds.length === 0}
+2700:                onClick={() => setCurrentView('task-details')}
+2701:                className="bg-white text-[#1976d2] disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded font-medium flex items-center space-x-1"
+2702:              >
+2703:                <Info size={18} />
+2704:                <span>任务详情</span>
+2705:              </button>
+2706:              
+2707:              <div className="w-px bg-blue-400 mx-2 self-stretch"></div>
+2708:
+2709:              <button 
+2710:                disabled={selectedTaskIds.length === 0}
+2711:                onClick={() => setShowMoldModal('mount')}
+2712:                className="bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded font-medium flex items-center space-x-1 transition-colors"
+2713:                title="需选中派工单"
+2714:              >
+2715:                <ActivatorIcon />
+2716:                <span>上模记录</span>
+2717:              </button>
+2718:              <button 
+2719:                disabled={selectedTaskIds.length === 0}
+2720:                onClick={() => setShowMoldModal('unmount')}
+2721:                className="bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded font-medium flex items-center space-x-1 transition-colors"
+2722:                title="需选中派工单"
+2723:              >
+2724:                <DeactivatorIcon />
+2725:                <span>下模记录</span>
+2726:              </button>
+2727:              <button 
+2728:                disabled={selectedTaskIds.length === 0}
+2729:                onClick={() => setShowMoldModal('requisition')}
+2730:                className="bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded font-medium flex items-center space-x-1 transition-colors"
+2731:                title="需选中派工单"
+2732:              >
+2733:                <Package size={18} />
+2734:                <span>模具领用</span>
+2735:              </button>
+2736:              
+2737:              <button 
+2738:                disabled={selectedTaskIds.length === 0}
+2739:                onClick={() => setCurrentView('handover-material-load')}
+2740:                className="bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded font-medium flex items-center space-x-1 transition-colors"
+2741:                title="需选中派工单"
+2742:              >
+2743:                <ArrowRightLeft size={18} />
+2744:                <span>接班上料</span>
+2745:              </button>
+2746:
+2747:              <div className="flex-1"></div>
+2748:
+2749:              <button className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded font-medium flex items-center space-x-1">
+2750:                <Play size={18} />
+2751:                <span>开工</span>
+2752:              </button>
+2753:              <button className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded font-medium flex items-center space-x-1">
+2754:                <FileCheck size={18} />
+2755:                <span>生产汇报</span>
+2756:              </button>
+2757:              <button className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded font-medium flex items-center space-x-1">
+2758:                <CheckCircle size={18} />
+2759:                <span>完工</span>
+2760:              </button>
+2761:            </div>
+2762:          </div>
+2763:        )}
+2764:        {currentView === 'task-details' && selectedTask && (
+2765:          <TaskExecutionView 
+2766:            task={selectedTask} 
+2767:            onBack={() => setCurrentView('tasks')} 
+2768:            onNavigate={setCurrentView} 
+2769:            onStartOrder={() => setTasks(prev => prev.map(t => t.id === selectedTask.id ? { ...t, orderStatus: '已开工' } : t))}
+2770:          />
+2771:        )}
+2772:        
+2773:        {currentView === 'instruction-manual' && (
+2774:          <InstructionManualView onBack={() => setCurrentView('task-details')} />
+2775:        )}
+2776:        
+2777:        {currentView === 'material-substitute' && selectedTask && (
+2778:          <MaterialSubstituteView task={selectedTask} onBack={() => setCurrentView('task-details')} />
+2779:        )}
+2780:
+2781:        {currentView === 'replenish' && selectedTask && (
+2782:          <ReplenishView task={selectedTask} onBack={() => setCurrentView('task-details')} />
+2783:        )}
+2784:        
+2785:        {currentView === 'material-load' && selectedTask && (
+2786:          <MaterialLoadView 
+2787:            task={selectedTask} 
+2788:            onBack={() => setCurrentView('task-details')} 
+2789:            onNavigate={setCurrentView}
+2790:            onComplete={() => {
+2791:              setTasks(prev => prev.map(t => t.id === selectedTask.id ? { ...t, materialLoadStatus: '已上料' } : t));
+2792:              setCurrentView('task-details');
+2793:            }} 
+2794:            type="startup"
+2795:          />
+2796:        )}
+2797:        
+2798:        {currentView === 'handover-material-load' && selectedTask && (
+2799:          <HandoverMaterialLoadView 
+2800:            task={selectedTask} 
+2801:            onBack={() => setCurrentView('tasks')} 
+2802:            onComplete={() => {
+2803:              setTasks(prev => prev.map(t => t.id === selectedTask.id ? { ...t, materialLoadStatus: '已上料' } : t));
+2804:              setCurrentView('tasks');
+2805:            }}
+2806:          />
+2807:        )}
+2808:        
+2809:        {currentView === 'unload' && selectedTask && (
+2810:          <UnloadView task={selectedTask} onBack={() => setCurrentView('task-details')} />
+2811:        )}
+2812:        
+2813:        {currentView === 'tail-weigh' && selectedTask && (
+2814:          <TailWeighView task={selectedTask} onBack={() => setCurrentView('task-details')} />
+2815:        )}
+2816:        
+2817:        {currentView === 'production-report' && selectedTask && (
+2818:          <ProductionReportView task={selectedTask} onBack={() => setCurrentView('task-details')} />
+2819:        )}
+2820:        
+2821:        {currentView === 'product-handover' && selectedTask && (
+2822:          <ProductHandoverView task={selectedTask} onBack={() => setCurrentView('task-details')} onNavigate={setCurrentView} />
+2823:        )}
+2824:        
+2825:        {currentView === 'ncr' && selectedTask && (
+2826:          <NCRIssueView task={selectedTask} onBack={() => setCurrentView('task-details')} />
+2827:        )}
+2828:
+2829:        {currentView === 'scrap-storage' && (
+2830:          <ScrapStorageView onBack={() => setCurrentView('task-details')} />
+2831:        )}
+2832:
+2833:        {currentView === 'scrap-handover' && (
+2834:          <ScrapHandoverView onBack={() => setCurrentView('task-details')} />
+2835:        )}
+2836:      </main>
+2837:
+2838:      {/* Mold Operation Modal (Mount / Unmount) */}
+2839:      {(showMoldModal === 'mount' || showMoldModal === 'unmount') && selectedTask && (
+2840:        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+2841:          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg flex flex-col overflow-hidden">
+2842:            <div className="p-4 border-b bg-[#1e3b5f] text-white flex justify-between items-center shrink-0">
+2843:              <h3 className="text-lg font-bold flex items-center">
+2844:                <Package className="mr-2" size={20} />
+2845:                执行{showMoldModal === 'mount' ? '上模' : '下模'}操作
+2846:              </h3>
+2847:              <button 
+2848:                onClick={() => { setShowMoldModal(null); setMoldInput(''); }}
+2849:                className="text-white hover:text-gray-200 text-2xl leading-none"
+2850:              >
+2851:                &times;
+2852:              </button>
+2853:            </div>
+2854:            
+2855:            <div className="flex-1 flex overflow-hidden min-h-[400px]">
+2856:              <div className="w-full p-6 flex flex-col overflow-y-auto">
+2857:                <div className="mb-6">
+2858:                  <h4 className="text-sm font-bold text-gray-600 mb-2">系统会自动验证扫描的模具是否符合工艺要求</h4>
+2859:                  <div className="font-medium text-sm text-gray-500 mt-4 mb-2">第一步：核对派工单及工艺信息</div>
+2860:                  <div className="border rounded p-3 bg-gray-50 flex items-center">
+2861:                    <span className="font-bold text-gray-800">[当前] {selectedTask.id} | {selectedTask.materialName} ({selectedTask.spec})</span>
+2862:                  </div>
+2863:                  
+2864:                  <div className="mt-3 border rounded p-3 bg-blue-50 border-blue-100 flex flex-col space-y-2 text-blue-800">
+2865:                    <div className="flex items-center space-x-2">
+2866:                       <Info size={16} className="text-blue-500 shrink-0" />
+2867:                       <span className="text-sm">工艺要求：需配套 <strong>{selectedTask.process}模</strong>，规格为 <strong>{selectedTask.spec}</strong>，型号为 <strong>{selectedTask.model}</strong></span>
+2868:                    </div>
+2869:                  </div>
+2870:                </div>
+2871:
+2872:                <div className="mb-6 flex-1">
+2873:                  <div className="font-medium text-sm text-gray-500 mb-2">第二步：扫码{showMoldModal === 'mount' ? '上模' : '下模'} (模具编号)</div>
+2874:                  <input 
+2875:                    type="text" 
+2876:                    value={moldInput}
+2877:                    onChange={(e) => setMoldInput(e.target.value)}
+2878:                    autoFocus
+2879:                    placeholder="请输入或扫描条码..."
+2880:                    className="w-full border-2 border-blue-500 rounded px-4 py-3 focus:outline-none bg-white text-gray-800 font-medium text-lg uppercase"
+2881:                  />
+2882:                </div>
+2883:                
+2884:                <button 
+2885:                  onClick={() => handleMoldSubmit()}
+2886:                  disabled={!moldInput}
+2887:                  className="mt-6 w-full bg-[#1976d2] hover:bg-[#1565c0] text-white px-6 py-3 rounded-lg font-bold disabled:opacity-50 transition-colors shadow-sm"
+2888:                >
+2889:                  确认{showMoldModal === 'mount' ? '上模' : '下模'}
+2890:                </button>
+2891:              </div>
+2892:            </div>
+2893:          </div>
+2894:        </div>
+2895:      )}
+2896:
+2897:      {showMoldModal === 'requisition' && selectedTask && (
+2898:        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+2899:          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg flex flex-col overflow-hidden">
+2900:            <div className="p-4 border-b bg-[#1e3b5f] text-white flex justify-between items-center shrink-0">
+2901:              <h3 className="text-lg font-bold flex items-center">
+2902:                <Package className="mr-2" size={20} />
+2903:                依据派工单领用模具
+2904:              </h3>
+2905:              <button onClick={() => { setShowMoldModal(null); setMoldInput(''); setSelectedInventoryMold(''); }} className="text-white hover:text-gray-200 text-2xl leading-none">&times;</button>
+2906:            </div>
+2907:            <div className="flex-1 flex overflow-hidden min-h-[400px]">
+2908:              <div className="w-full p-6 flex flex-col overflow-y-auto">
+2909:                <div className="mb-6">
+2910:                  <h4 className="text-sm font-bold text-gray-600 mb-2">系统会自动为您筛选符合工艺要求的模具库存</h4>
+2911:                  <div className="font-medium text-sm text-gray-500 mt-4 mb-2">第一步：待产派工单</div>
+2912:                  <div className="border rounded p-3 bg-gray-50 flex items-center">
+2913:                    <span className="font-bold text-gray-800">[开工] {selectedTask.id} | {selectedTask.materialName} ({selectedTask.spec})</span>
+2914:                  </div>
+2915:                  
+2916:                  <div className="mt-3 border rounded p-3 bg-blue-50 border-blue-100 flex items-center space-x-2 text-blue-800">
+2917:                    <Info size={16} className="text-blue-500" />
+2918:                    <span className="text-sm">工艺要求：需配套 <strong>{selectedTask.process}模</strong>，规格为 <strong>{selectedTask.spec}</strong>，型号为 <strong>{selectedTask.model}</strong></span>
+2919:                  </div>
+2920:                </div>
+2921:
+2922:                <div className="mb-6 flex-1">
+2923:                  <div className="font-medium text-sm text-gray-500 mb-2">第二步：选择匹配模具</div>
+2924:                  <div className="relative">
+2925:                    <select 
+2926:                      className="w-full border-2 border-blue-500 rounded px-3 py-2 appearance-none focus:outline-none bg-white text-gray-800 font-medium"
+2927:                      value={selectedInventoryMold}
+2928:                      onChange={(e) => setSelectedInventoryMold(e.target.value)}
+2929:                    >
+2930:                      <option value="">请选择需领用的模具编号...</option>
+2931:                      {moldInventory.filter(m => m.type.includes(selectedTask.process) && m.spec === selectedTask.spec && m.status === 'available').map(m => (
+2932:                        <option key={m.id} value={m.id}>{m.id} | {m.type} ({m.spec}) 寿命:{m.remainingLife}%</option>
+2933:                      ))}
+2934:                    </select>
+2935:                    <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none text-blue-500">
+2936:                      <ChevronLeft size={16} className="-rotate-90" />
+2937:                    </div>
+2938:                  </div>
+2939:                </div>
+2940:
+2941:                <button 
+2942:                  onClick={() => {
+2943:                    handleMoldSubmit(selectedInventoryMold);
+2944:                  }}
+2945:                  disabled={!selectedInventoryMold}
+2946:                  className="mt-6 w-full bg-[#1976d2] hover:bg-[#1565c0] text-white px-6 py-3 rounded-lg font-bold disabled:opacity-50 transition-colors shadow-sm"
+2947:                >
+2948:                  确认领用并生成锁定单
+2949:                </button>
+2950:              </div>
+2951:            </div>
+2952:          </div>
+2953:        </div>
+2954:      )}
+2955:
+2956:    </div>
+2957:  );
+2958:}
+2959:
+2960:// Helpers
+2961:const DetailItem = ({ label, value }: { label: string, value: React.ReactNode }) => (
+2962:  <div className="flex border-b border-gray-100 pb-2">
+2963:    <span className="w-1/3 text-gray-500 text-sm">{label}</span>
+2964:    <span className="w-2/3 text-gray-900 font-medium">{value}</span>
+2965:  </div>
+2966:);
+2967:
+2968:const ActivatorIcon = ({ className }: { className?: string }) => (
+2969:  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+2970:    <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+2971:  </svg>
+2972:);
+2973:
+2974:const DeactivatorIcon = ({ className }: { className?: string }) => (
+2975:  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+2976:    <circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>
+2977:  </svg>
+2978:);

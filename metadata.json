@@ -1,0 +1,5 @@
+{
+  "name": "Remix: 电磁线工位机管理系统",
+  "description": "面向电磁线行业的工位机管理系统，包含派工任务管理、上模下模记录及车间任务看板等功能。",
+  "requestFramePermissions": []
+}
